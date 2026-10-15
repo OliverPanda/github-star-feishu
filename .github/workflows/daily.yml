@@ -39,7 +39,7 @@ jobs:
           curl -fsSL -o feishu-cli.tar.gz \
             "https://github.com/riba2534/feishu-cli/releases/download/${FEISHU_CLI_VERSION}/feishu-cli_${FEISHU_CLI_VERSION}_linux-amd64.tar.gz"
           tar -xzf feishu-cli.tar.gz
-          install -m 0755 feishu-cli /usr/local/bin/feishu-cli
+          install -m 0755 feishu-cli_*_linux-amd64 /usr/local/bin/feishu-cli
           feishu-cli --version
 
       - name: 还原数据库缓存
