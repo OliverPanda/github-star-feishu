@@ -1,0 +1,48 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1789200490096,
+      "tag": "0000_unknown_diamondback",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1789203055596,
+      "tag": "0001_brave_the_santerians",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1789204867911,
+      "tag": "0002_goofy_squadron_sinister",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1789218333614,
+      "tag": "0003_serious_scalphunter",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1789234137380,
+      "tag": "0004_mysterious_pet_avengers",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1789285718201,
+      "tag": "0005_lean_onslaught",
+      "breakpoints": true
+    }
+  ]
+}

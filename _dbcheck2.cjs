@@ -1,0 +1,3 @@
+const { DatabaseSync } = require("node:sqlite");
+const db = new DatabaseSync("data/stars.db");
+for (const r of db.prepare("select a.login, count(s.id) as total, sum(case when s.classified_at is not null then 1 else 0 end) as done from authors a left join stars s on s.author_id = a.id group by a.login order by a.login").all()) console.log(String(r.login).padEnd(16), "total=" + String(r.total).padStart(5), "classified=" + String(r.done ?? 0).padStart(5));

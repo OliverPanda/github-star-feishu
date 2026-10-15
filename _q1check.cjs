@@ -1,0 +1,10 @@
+const Database = require("better-sqlite3");
+const db = new Database("data/stars.db", { readonly: true });
+console.log("== settings ==");
+for (const r of db.prepare("select key, value from settings").all()) console.log(r.key, "=", r.value);
+console.log("== wiki_nodes ==");
+for (const r of db.prepare("select doc_key, space_id, node_token, parent_node_token, title from wiki_nodes").all()) console.log(JSON.stringify(r));
+console.log("== authors ==");
+for (const r of db.prepare("select id, login, name, followers, starred_count, last_synced_at from authors").all()) console.log(JSON.stringify(r));
+console.log("== counts ==");
+console.log("repos", db.prepare("select count(*) c from repos").get().c, "stars", db.prepare("select count(*) c from stars").get().c, "unclassified", db.prepare("select count(*) c from stars where category is null").get().c);

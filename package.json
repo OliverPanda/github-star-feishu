@@ -1,0 +1,48 @@
+{
+  "name": "github-star-rag",
+  "version": "0.1.0",
+  "description": "Sync GitHub stars (yours or any author's) into a Feishu/Lark wiki knowledge base",
+  "scripts": {
+    "cli": "tsx src/cli.ts",
+    "api": "tsx src/api/server.ts",
+    "sync": "tsx src/cli.ts sync",
+    "publish": "tsx src/cli.ts publish",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "sync:daily": "node scripts/daily-sync.mjs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "private": "true",
+  "dependencies": {
+    "@ai-sdk/openai-compatible": "^3.0.48",
+    "@hono/node-server": "^2.1.1",
+    "@octokit/graphql": "^9.0.5",
+    "ai": "^7.0.99",
+    "better-sqlite3": "^13.0.3",
+    "cheerio": "^1.2.0",
+    "drizzle-orm": "^0.45.2",
+    "hono": "^4.13.7",
+    "node-cron": "^4.6.0",
+    "octokit": "^5.0.5",
+    "p-retry": "^8.0.1",
+    "qrcode": "^1.5.4",
+    "qrcode-terminal": "^0.12.0",
+    "yaml": "^2.9.1",
+    "zod": "^4.6.2"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^22.20.2",
+    "@types/qrcode": "^1.5.6",
+    "@types/qrcode-terminal": "^0.12.2",
+    "drizzle-kit": "^0.31.10",
+    "tsx": "^4.23.13",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.0"
+  }
+}

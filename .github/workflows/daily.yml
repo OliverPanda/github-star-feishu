@@ -1,0 +1,78 @@
+name: 每日同步 Star 知识库
+
+on:
+  repository_dispatch:
+    types: [cloudflare-daily-sync]
+  workflow_dispatch:
+    inputs:
+      full:
+        description: "忽略增量水位，全量重拉"
+        type: boolean
+        default: false
+
+concurrency:
+  # 定时任务与手动触发共用一把锁，避免两次同步同时写同一个知识库
+  group: star-rag-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 安装 feishu-cli
+        env:
+          FEISHU_CLI_VERSION: v1.40.0
+        run: |
+          set -euo pipefail
+          curl -fsSL -o feishu-cli.tar.gz \
+            "https://github.com/riba2534/feishu-cli/releases/download/${FEISHU_CLI_VERSION}/feishu-cli_${FEISHU_CLI_VERSION}_linux-amd64.tar.gz"
+          tar -xzf feishu-cli.tar.gz
+          install -m 0755 feishu-cli /usr/local/bin/feishu-cli
+          feishu-cli --version
+
+      - name: 还原数据库缓存
+        uses: actions/cache@v4
+        with:
+          path: data
+          # 星级列表只增不减，用 run_id 做后缀保证每轮都写入新的缓存
+          key: star-rag-db-${{ github.run_id }}
+          restore-keys: |
+            star-rag-db-
+
+      - name: 同步并更新知识库
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          LLM_MODEL: glm-4-flash
+          FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
+          FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
+          FEISHU_SPACE_ID: ${{ secrets.FEISHU_SPACE_ID }}
+          # 订阅文件含 webhook，不进仓库，改为从 Secret 注入整份 YAML
+          STAR_SUBSCRIPTIONS: ${{ secrets.STAR_SUBSCRIPTIONS }}
+        run: |
+          args=(run --out out)
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.full }}" = "true" ]; then args+=(--full); fi
+          if [ "${{ github.event_name }}" = "repository_dispatch" ] && [ "${{ github.event.client_payload.full }}" = "true" ]; then args+=(--full); fi
+          npm run cli -- "${args[@]}"
+
+      - name: 上传运行产物
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: run-output
+          path: out/
+          if-no-files-found: ignore
+          retention-days: 14
+

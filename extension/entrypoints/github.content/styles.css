@@ -1,0 +1,48 @@
+/* Scoped to the shadow root, so these names cannot collide with GitHub's own. */
+
+.endorse {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-subtle);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei",
+    "Noto Sans CJK SC", sans-serif;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+@media (prefers-color-scheme: dark) {
+  .endorse {
+    --border: #30363d;
+    --bg-subtle: #161b22;
+    --text: #e6edf3;
+    --accent-soft: #121d2f;
+    --accent: #4493f8;
+  }
+}
+
+.endorse-title {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.endorse-list {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.endorse-chip {
+  padding: 1px 6px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  white-space: nowrap;
+}

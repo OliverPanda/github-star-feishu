@@ -1,0 +1,1 @@
+ALTER TABLE `wiki_nodes` ADD `parent_node_token` text;

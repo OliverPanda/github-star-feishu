@@ -1,0 +1,46 @@
+# 订阅配置：把任意 GitHub 账号的 Star 整理成飞书知识库
+#
+# 用法：复制为 star-subscriptions.yaml 后按需修改
+#   cp star-subscriptions.yaml.example star-subscriptions.yaml
+#   npm run cli -- run            # 同步全部作者 + 更新知识库索引 + 推送通知
+
+# ---- 知识库 ----
+# 知识库名称，不存在时会尝试创建（需要 feishu-cli 已 auth login）
+space: GitHub Star 精选
+
+# 可选：直接指定知识库 ID，跳过按名称查找/创建
+# space_id: wikcnxxxxxxxxxxxxxxxx
+
+# 可选：所有作者文档都挂在这个父节点下（用 feishu-cli wiki nodes 查 token）
+# parent_node: wikcnxxxxxxxxxxxxxxxx
+
+# 可选：飞书自定义机器人 Webhook，每次同步完成后推送摘要卡片
+# 创建方式：飞书群 -> 设置 -> 群机器人 -> 添加机器人 -> 自定义机器人
+# webhook: https://open.feishu.cn/open-apis/bot/v2/hook/xxxxxxxx
+
+# ---- 趋势榜 ----
+# 除了整理各作者的 Star，还会额外发布一篇「GitHub 上涨趋势榜」：
+# 抓取 github.com/trending 的今日涨幅 TOP 10，写入知识库根层。
+# 默认开启；不想要就设为 false。
+trending: true
+
+# ---- 订阅的作者 ----
+# 至少要有一个。login 必填，其余字段都是可选的覆盖项。
+authors:
+  # 本人：标题会渲染成「我的 Star 精选」
+  - login: your-own-login
+    self: true
+
+  # 名人星单：给一个 login 就能整理出「他都在关注什么」
+  - login: karpathy
+    alias: Andrej Karpathy
+
+  - login: antfu
+    alias: Anthony Fu
+
+  - login: sindresorhus
+    alias: Sindre Sorhus
+
+  # 需要暂时停更时，用 enabled: false 停用，而不是删掉整段配置
+  - login: ggerganov
+    enabled: false

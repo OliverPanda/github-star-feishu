@@ -1,0 +1,8 @@
+name = "github-star-rag-sync"
+main = "worker.ts"
+compatibility_date = "2026-10-15"
+workers_dev = true
+
+[triggers]
+# 每天北京时间 09:00（UTC 01:00）触发 GitHub Actions 同步工作流
+crons = ["0 1 * * *"]

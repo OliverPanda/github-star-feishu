@@ -1,0 +1,26 @@
+node_modules/
+dist/
+.output/
+*.log
+
+# local database
+data/
+*.db
+*.db-journal
+*.db-wal
+
+# secrets
+.env
+.env.local
+
+# contains the Feishu webhook; copy the .example file instead
+star-subscriptions.yaml
+
+# generated output
+out/
+.wxt/
+.DS_Store
+Thumbs.db
+
+# throwaway local fixtures (test subscription files, webhook receiver)
+scratch/

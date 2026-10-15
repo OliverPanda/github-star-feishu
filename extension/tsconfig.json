@@ -1,0 +1,22 @@
+{
+  "extends": "./.wxt/tsconfig.json",
+  "compilerOptions": {
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "jsx": "react-jsx",
+    "noUnusedLocals": true,
+    "types": ["vitest/globals"]
+  },
+  // The explicit include overrides the one inherited from .wxt/tsconfig.json, so
+  // WXT's generated declarations must be listed here too: .wxt/types/paths.d.ts
+  // is what teaches `browser.runtime.getURL` about this project's HTML pages.
+  "include": [
+    ".wxt/wxt.d.ts",
+    "entrypoints",
+    "lib",
+    "components",
+    "tests",
+    "wxt.config.ts",
+    "vitest.config.ts"
+  ]
+}

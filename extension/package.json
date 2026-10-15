@@ -1,0 +1,28 @@
+{
+  "name": "github-star-rag-extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "GitHub Star RAG 浏览器插件：管理订阅的 GitHub 账号，并在仓库页显示谁 star 了它",
+  "scripts": {
+    "dev": "wxt",
+    "build": "wxt build",
+    "zip": "wxt zip",
+    "compile": "wxt prepare && tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@wxt-dev/i18n": "^0.2.7",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@wxt-dev/module-react": "^1.2.2",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.0",
+    "vitest": "^3.2.4",
+    "wxt": "^0.21.4"
+  }
+}
