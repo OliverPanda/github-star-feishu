@@ -17,6 +17,15 @@ export interface PublishRequest {
   docKey?: string | undefined;
   /** Attribution only; the document identity is its docKey. */
   authorId?: number | null | undefined;
+  /**
+   * Other titles the same page can carry in Feishu.
+   *
+   * Feishu derives a document's title from its first heading, so a page we
+   * created as "karpathy 的 Star 精选（Andrej）" comes back as
+   * "karpathy 的 GitHub Star 精选". Recovering a page after a lost index has to
+   * accept both, or every run would create another copy beside the live one.
+   */
+  alternateTitles?: string[] | undefined;
   parentNodeToken?: string | undefined;
   /** Force a write even when the content hash is unchanged. */
   force?: boolean;
@@ -103,7 +112,7 @@ export async function ensureSection(request: {
     writer,
     docKey,
     spaceId,
-    title,
+    titles: [title],
     parentNodeToken,
     log,
   });
@@ -159,13 +168,14 @@ export async function publishDocument(request: PublishRequest): Promise<PublishR
   } = request;
   const contentHash = hashContent(markdown);
   const docKey = request.docKey ?? documentKey(login);
+  const wantedTitles = [title, ...(request.alternateTitles ?? [])];
 
   const existing = await findOrHydrateNode({
     db,
     writer,
     docKey,
     spaceId,
-    title,
+    titles: wantedTitles,
     parentNodeToken,
     log,
   });
@@ -261,18 +271,21 @@ async function findOrHydrateNode(request: {
   writer: WikiWriter;
   docKey: string;
   spaceId: string;
-  title: string;
+  /** Any of these titles identifies the page; the first is the canonical one. */
+  titles: string[];
   parentNodeToken?: string | undefined;
   log: (message: string) => void;
 }): Promise<WikiNodeRecord | undefined> {
-  const { db, writer, docKey, spaceId, title, parentNodeToken, log } = request;
+  const { db, writer, docKey, spaceId, titles, parentNodeToken, log } = request;
+  const title = titles[0]!;
   const local = getWikiNode(db, docKey, spaceId);
   if (local) return local;
   if (!writer.listNodes) return undefined;
 
   try {
+    const wanted = new Set(titles.map((candidate) => candidate.trim()));
     const matches = (await writer.listNodes(spaceId, parentNodeToken)).filter(
-      (node) => node.title.trim() === title.trim(),
+      (node) => wanted.has(node.title.trim()),
     );
     const match = matches[0];
     if (!match) return undefined;

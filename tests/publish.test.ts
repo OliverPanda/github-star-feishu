@@ -3,6 +3,7 @@ import type { Db } from "../src/db/client.js";
 import { documentKey, hashContent, publishDocument } from "../src/publish.js";
 import type {
   MoveNodeRequest,
+  WikiNodeSummary,
   WikiWriteRequest,
   WikiWriteResult,
   WikiWriter,
@@ -20,7 +21,7 @@ class RecordingWriter implements WikiWriter {
     return name;
   }
 
-  async listNodes(): Promise<never[]> {
+  async listNodes(_spaceId?: string, _parentNodeToken?: string): Promise<WikiNodeSummary[]> {
     return [];
   }
 
@@ -52,6 +53,19 @@ class MovingWriter extends RecordingWriter {
   async moveNode(request: MoveNodeRequest): Promise<void> {
     this.moves.push(request);
     if (this.moveError) throw this.moveError;
+  }
+}
+
+/** Serves a fixed node listing, the way a cache-less CI run sees the wiki. */
+class ListingWriter extends RecordingWriter {
+  readonly listCalls: (string | undefined)[] = [];
+  constructor(private readonly nodes: { nodeToken: string; title: string }[]) {
+    super();
+  }
+
+  override async listNodes(_spaceId: string, parentNodeToken?: string) {
+    this.listCalls.push(parentNodeToken);
+    return this.nodes.map((node) => ({ ...node, objType: "docx" }));
   }
 }
 
@@ -438,5 +452,74 @@ describe("publishDocument placement", () => {
 
     expect(republished.skipped).toBe(true);
     expect(plain.writes).toHaveLength(1);
+  });
+});
+
+describe("publishDocument recovery", () => {
+  it("reuses the page Feishu renamed after its heading instead of creating a twin", async () => {
+    const db = createTestDb();
+    // The real symptom: the local index is gone, and the page in the knowledge
+    // base carries Feishu's own title rather than the one we published with.
+    const writer = new ListingWriter([
+      { nodeToken: "node-live", title: "karpathy 的 GitHub Star 精选" },
+    ]);
+
+    const result = await publishDocument({
+      db,
+      writer,
+      login: "karpathy",
+      spaceId: base.spaceId,
+      title: "karpathy 的 Star 精选（Andrej）",
+      alternateTitles: ["karpathy 的 GitHub Star 精选"],
+      markdown: "# karpathy 的 GitHub Star 精选",
+    });
+
+    expect(result.nodeToken).toBe("node-live");
+    expect(writer.writes).toHaveLength(1);
+    expect(writer.writes[0]?.existingNodeToken).toBe("node-live");
+    expect(getWikiNode(db, "karpathy__stars", base.spaceId)?.nodeToken).toBe("node-live");
+  });
+
+  it("creates a page when no known title matches", async () => {
+    const db = createTestDb();
+    const writer = new ListingWriter([
+      { nodeToken: "node-other", title: "antfu 的 GitHub Star 精选" },
+    ]);
+
+    const result = await publishDocument({
+      db,
+      writer,
+      login: "karpathy",
+      spaceId: base.spaceId,
+      title: "karpathy 的 Star 精选（Andrej）",
+      alternateTitles: ["karpathy 的 GitHub Star 精选"],
+      markdown: "# karpathy 的 GitHub Star 精选",
+    });
+
+    expect(result.nodeToken).toBe("node-1");
+    expect(writer.writes[0]?.existingNodeToken).toBeUndefined();
+  });
+
+  it("prefers the node that comes back first when several copies exist", async () => {
+    const db = createTestDb();
+    // Earlier runs left duplicates behind; the pagination order puts the
+    // oldest (the one readers already have open) first.
+    const writer = new ListingWriter([
+      { nodeToken: "node-live", title: "karpathy 的 GitHub Star 精选" },
+      { nodeToken: "node-dup", title: "karpathy 的 GitHub Star 精选" },
+    ]);
+
+    const result = await publishDocument({
+      db,
+      writer,
+      login: "karpathy",
+      spaceId: base.spaceId,
+      title: "karpathy 的 Star 精选（Andrej）",
+      alternateTitles: ["karpathy 的 GitHub Star 精选"],
+      markdown: "# karpathy 的 GitHub Star 精选",
+    });
+
+    expect(result.nodeToken).toBe("node-live");
+    expect(writer.writes[0]?.existingNodeToken).toBe("node-live");
   });
 });

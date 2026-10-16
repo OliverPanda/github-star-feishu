@@ -11,7 +11,7 @@ import {
   ensureSection,
   publishDocument,
 } from "./publish.js";
-import { renderIndex, type IndexAuthor } from "./render/markdown.js";
+import { authorDocumentHeading, renderIndex, type IndexAuthor } from "./render/markdown.js";
 import {
   getAuthorByLogin,
   getAuthorSyncSummary,
@@ -204,6 +204,14 @@ export async function runBatch(options: BatchOptions): Promise<BatchResult> {
           spaceId,
           title: documentTitle(synced.author.login, synced.author.name, synced.author.isSelf),
           markdown: synced.markdown,
+          // Feishu renames the page after its own first heading, so the
+          // recovery lookup has to know that spelling as well.
+          alternateTitles: [
+            authorDocumentHeading({
+              login: synced.author.login,
+              isSelf: synced.author.isSelf,
+            }),
+          ],
           parentNodeToken: section.nodeToken,
           force,
           log,

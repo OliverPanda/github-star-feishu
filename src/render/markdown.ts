@@ -106,6 +106,18 @@ function chunkRows<T>(items: T[], size: number): T[][] {
 }
 
 /**
+ * First heading of one author's document.
+ *
+ * Exported because Feishu shows this line as the document title, so the
+ * publisher needs the exact same text to recognise its own page again after a
+ * lost local index. The title handed to the wiki API and this heading have to
+ * stay in step, which is why both are derived here.
+ */
+export function authorDocumentHeading(context: { login: string; isSelf: boolean }): string {
+  return context.isSelf ? "我的 GitHub Star 精选" : `${context.login} 的 GitHub Star 精选`;
+}
+
+/**
  * Render the star list as a Markdown document grouped by category.
  *
  * The output is deterministic given the same inputs (categories in taxonomy
@@ -122,7 +134,7 @@ export function renderMarkdown(repos: RenderedRepo[], context: RenderContext): R
   }
 
   const counts: Record<string, number> = {};
-  const heading = context.isSelf ? "我的 GitHub Star 精选" : `${context.login} 的 GitHub Star 精选`;
+  const heading = authorDocumentHeading(context);
 
   const lines: string[] = [];
   lines.push(`# ${heading}`);

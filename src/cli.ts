@@ -14,6 +14,7 @@ import { createLanguageModel } from "./llm/provider.js";
 import { syncAuthor } from "./sync.js";
 import { runBatch, sectionTitle } from "./batch.js";
 import { publishDocument } from "./publish.js";
+import { authorDocumentHeading } from "./render/markdown.js";
 import { FeishuCliWriter } from "./feishu/cli.js";
 import { readLoginStatus, runLoginFlow } from "./feishu/login-flow.js";
 import { LocalFsWriter } from "./feishu/local.js";
@@ -452,6 +453,9 @@ async function main(): Promise<void> {
       spaceId,
       title,
       markdown: result.markdown,
+      alternateTitles: [
+        authorDocumentHeading({ login: result.author.login, isSelf: result.author.isSelf }),
+      ],
       parentNodeToken: values.parent,
       force: values.force,
       log,
