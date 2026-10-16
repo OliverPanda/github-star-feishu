@@ -1,99 +1,167 @@
 import type { LanguageModel } from "ai";
+import seedrandom from "seedrandom";
+import { COMMERCIAL_PROJECTS, type CommercialProject } from "./commercial-projects.js";
 
 export const COMMERCIAL_DOC_KEY = "__commercial_top20";
 export const COMMERCIAL_TITLE = "搞钱项目精选 Top 20";
 
-type Project = {
-  name: string;
-  repo: string;
-  category: string;
-  scenario: string;
-  deploy: string;
-  monetization: string;
-  fit: string;
-};
+/** 第一批发布的日期；页面从这天开始按批留档。 */
+export const COMMERCIAL_START_DATE = "2026-10-16";
 
-const PROJECTS: Project[] = [
-  { name: "Coolify", repo: "coollabsio/coolify", category: "部署平台", scenario: "给本地商家和工作室托管网站、API、机器人", deploy: "Docker 一键部署到 VPS", monetization: "收部署费、月维护费和托管费", fit: "懂服务器、想做小型云服务的人" },
-  { name: "Dify", repo: "langgenius/dify", category: "AI 应用", scenario: "为企业搭建客服、知识库、销售助手", deploy: "Docker Compose 自托管", monetization: "按项目收实施费，按调用量或席位收费", fit: "AI 外包、企业服务、垂直 SaaS" },
-  { name: "n8n", repo: "n8n-io/n8n", category: "自动化", scenario: "把表单、邮件、CRM、飞书和支付串成自动流程", deploy: "Docker 或官方托管", monetization: "卖自动化模板、实施服务和代运营", fit: "运营顾问、自动化工作室" },
-  { name: "Cal.com", repo: "calcom/cal.com", category: "预约服务", scenario: "咨询、课程、维修、摄影等在线预约收款", deploy: "Docker 自托管", monetization: "按预约收服务费，叠加会员和渠道分成", fit: "顾问、教练、服务型商家" },
-  { name: "Twenty", repo: "twentyhq/twenty", category: "CRM", scenario: "给外贸、地产、教育团队搭建客户跟进系统", deploy: "Docker Compose", monetization: "定制字段、迁移数据、培训和月维护", fit: "销售团队服务商" },
-  { name: "Medusa", repo: "medusajs/medusa", category: "电商", scenario: "做跨境独立站、订阅商品和多商户商城", deploy: "Node.js + PostgreSQL", monetization: "建站费、插件费、交易服务费", fit: "跨境电商和开发团队" },
-  { name: "Saleor", repo: "saleor/saleor", category: "电商", scenario: "给品牌搭建多语言、多币种、高客单商城", deploy: "Docker + GraphQL", monetization: "项目制建站、运维和增长服务", fit: "中高端品牌服务商" },
-  { name: "NocoDB", repo: "nocodb/nocodb", category: "数据管理", scenario: "把 Excel 客户表升级为可协作业务后台", deploy: "Docker 一键部署", monetization: "模板定制、数据迁移、权限设计", fit: "中小企业数字化顾问" },
-  { name: "Appwrite", repo: "appwrite/appwrite", category: "后端服务", scenario: "快速交付会员、积分、文件和通知功能", deploy: "Docker 自托管", monetization: "按功能包报价，收开发和托管费", fit: "独立开发者和外包团队" },
-  { name: "Supabase", repo: "supabase/supabase", category: "开发平台", scenario: "为 MVP 提供登录、数据库、存储和实时同步", deploy: "Docker 自托管或云端", monetization: "卖 MVP 开发、迁移和数据库运维", fit: "产品外包和创业团队" },
-  { name: "Chatwoot", repo: "chatwoot/chatwoot", category: "客服", scenario: "统一网站、WhatsApp、邮件和社媒客服", deploy: "Docker Compose", monetization: "按坐席收费，收部署和客服运营费", fit: "跨境客服和代运营团队" },
-  { name: "Listmonk", repo: "knadh/listmonk", category: "邮件营销", scenario: "做订阅通讯、线索培育和老客召回", deploy: "单机 Docker", monetization: "卖邮件增长方案、名单运营和模板", fit: "内容创业和外贸获客" },
-  { name: "Formbricks", repo: "formbricks/formbricks", category: "调研转化", scenario: "收集用户反馈、NPS 和购买意向", deploy: "Docker Compose", monetization: "按行业做调研实施和数据分析", fit: "增长顾问和产品团队" },
-  { name: "Plausible", repo: "plausible/analytics", category: "数据分析", scenario: "为客户提供轻量、隐私友好的网站分析", deploy: "Docker 自托管", monetization: "按站点收订阅费和月报服务费", fit: "建站、SEO 和营销服务商" },
-  { name: "PostHog", repo: "PostHog/posthog", category: "产品增长", scenario: "分析漏斗、回放、实验和功能使用", deploy: "Docker 或云端", monetization: "卖埋点实施、增长分析和实验服务", fit: "SaaS 和增长团队" },
-  { name: "Directus", repo: "directus/directus", category: "后台系统", scenario: "把已有数据库快速变成带权限的管理后台", deploy: "Docker 一键部署", monetization: "为企业做数据门户、审批和后台定制", fit: "企业软件外包" },
-  { name: "Strapi", repo: "strapi/strapi", category: "内容系统", scenario: "给品牌、媒体和课程业务搭建内容 API", deploy: "Node.js + PostgreSQL", monetization: "内容建站、插件和长期维护", fit: "内容型网站服务商" },
-  { name: "ERPNext", repo: "frappe/erpnext", category: "企业管理", scenario: "为批发、制造和服务公司搭建进销存 ERP", deploy: "Docker 或 Frappe 安装器", monetization: "实施、培训、二开和年度支持", fit: "本地企业数字化服务商" },
-  { name: "Plane", repo: "makeplane/plane", category: "项目协作", scenario: "给软件团队提供项目、工单和路线图管理", deploy: "Docker Compose", monetization: "私有化部署、迁移和团队培训", fit: "软件外包和 IT 服务商" },
-  { name: "Frappe Helpdesk", repo: "frappe/helpdesk", category: "工单服务", scenario: "为售后、物业和内部 IT 建立工单中心", deploy: "Frappe Docker", monetization: "按部门收实施费和运维费", fit: "客服系统集成商" },
-];
+/** 每批项目数，也是页面和推送卡片里的粒度。 */
+export const COMMERCIAL_PER_DAY = 20;
 
-export function renderCommercialBoard(now = new Date(), _model?: LanguageModel): string {
-  const date = now.toISOString().slice(0, 10);
-  const rows = PROJECTS.map((project, index) => [
-    `## ${index + 1}. ${project.name}`,
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * 北京时间偏移。
+ *
+ * 日报在北京时间早上推送，若按 UTC 换日，早上八点前跑的那一轮会被算成前一天，
+ * 于是同一批项目连着发两天。统一按北京时间判断，同一天重跑一定得到同一批。
+ */
+const CHINA_OFFSET_MS = 8 * 60 * 60 * 1000;
+
+/** 一天发布的一批项目。 */
+export interface CommercialBatch {
+  /** 发布日期（北京时间），同时用作页面上的小标题。 */
+  date: string;
+  /** 第几批，从 1 开始。 */
+  batch: number;
+  projects: CommercialProject[];
+}
+
+/** 一轮要发多少天；项目池按整批划分。 */
+export function commercialDaysPerCycle(): number {
+  return Math.floor(COMMERCIAL_PROJECTS.length / COMMERCIAL_PER_DAY);
+}
+
+/** 北京时间日期（YYYY-MM-DD）。 */
+export function commercialDate(now: Date = new Date()): string {
+  return new Date(now.getTime() + CHINA_OFFSET_MS).toISOString().slice(0, 10);
+}
+
+/** 距离第一批的天数：首批当天为 0，之后每天加一；早于首批按 0 处理。 */
+export function commercialDayIndex(date: string = commercialDate()): number {
+  const start = Date.parse(`${COMMERCIAL_START_DATE}T00:00:00Z`);
+  const target = Date.parse(`${date}T00:00:00Z`);
+  return Math.max(0, Math.round((target - start) / DAY_MS));
+}
+
+/** 第 day 天对应的日期，用来给历史批次写标题。 */
+function dateOfDay(day: number): string {
+  const start = Date.parse(`${COMMERCIAL_START_DATE}T00:00:00Z`);
+  return new Date(start + day * DAY_MS).toISOString().slice(0, 10);
+}
+
+/**
+ * 第 cycle 轮里项目的排列顺序。
+ *
+ * 第 0 轮按整理时的顺序首发，之后每一轮用固定种子重新洗牌：轮内 20 个一批互不
+ * 重叠，跨轮也不会照抄上一轮的顺序。种子只取决于轮次，所以同一天重跑永远得到
+ * 同一批项目——缓存丢了、工作流被手动触发，都不会把推过的项目当成新的再推一次。
+ */
+function cycleOrder(cycle: number): CommercialProject[] {
+  const order = [...COMMERCIAL_PROJECTS];
+  if (cycle <= 0) return order;
+
+  const random = seedrandom(`commercial-cycle-${cycle}`);
+  for (let i = order.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(random() * (i + 1));
+    const swap = order[i]!;
+    order[i] = order[j]!;
+    order[j] = swap;
+  }
+  return order;
+}
+
+function rosterForDay(day: number): CommercialProject[] {
+  const perCycle = commercialDaysPerCycle();
+  const order = cycleOrder(Math.floor(day / perCycle));
+  const slot = day % perCycle;
+  return order.slice(slot * COMMERCIAL_PER_DAY, (slot + 1) * COMMERCIAL_PER_DAY);
+}
+
+/** 某一天（默认今天）发布的那 20 个项目。 */
+export function commercialRoster(date: string | Date = new Date()): CommercialProject[] {
+  return rosterForDay(commercialDayIndex(typeof date === "string" ? date : commercialDate(date)));
+}
+
+/**
+ * 从第一批到今天，每一天的批次，最新的一天排在最前面。
+ *
+ * 页面靠它把历史攒起来：同一天重跑得到完全一样的文档，内容哈希没变时写入会被
+ * 跳过，第二天再跑才多出一节。
+ */
+export function commercialHistory(now: Date = new Date()): CommercialBatch[] {
+  const batches: CommercialBatch[] = [];
+  for (let day = commercialDayIndex(commercialDate(now)); day >= 0; day -= 1) {
+    batches.push({ date: dateOfDay(day), batch: day + 1, projects: rosterForDay(day) });
+  }
+  return batches;
+}
+
+/**
+ * The board page: every batch published so far, newest first.
+ *
+ * History lives in the render instead of the database because the roster is a
+ * pure function of the date. A rebuild after a lost cache reproduces the page
+ * rather than publishing a second copy of Monday's projects.
+ */
+export function renderCommercialBoard(now: Date = new Date(), _model?: LanguageModel): string {
+  const history = commercialHistory(now);
+  const latest = history[0]!;
+  const directions = new Set(COMMERCIAL_PROJECTS.map((project) => project.category)).size;
+  const sections = history.map((entry) =>
+    [
+      `## ${entry.date}（第 ${entry.batch} 批 · ${entry.projects.length} 个）`,
+      "",
+      entry.projects.map((project, index) => renderProject(project, index + 1)).join("\n\n"),
+    ].join("\n"),
+  );
+
+  return [
+    `# ${COMMERCIAL_TITLE}`,
+    "",
+    `> 项目池 ${COMMERCIAL_PROJECTS.length} 个，覆盖 ${directions} 个细分业务方向；每天发布 20 个新项目，` +
+      `${commercialDaysPerCycle()} 天一轮，同一轮内不重复，轮与轮之间重新洗牌。每批按日期留档，历史全部保留。` +
+      "上线前请核对项目许可证、第三方服务条款、数据合规和实际成本。",
+    "",
+    `> 最新一批：${latest.date}（第 ${latest.batch} 批）`,
+    "",
+    sections.join("\n\n"),
+  ].join("\n");
+}
+
+function renderProject(project: CommercialProject, index: number): string {
+  return [
+    `### ${index}. ${project.name}`,
     `- 项目地址：[${project.repo}](https://github.com/${project.repo})`,
     `- 业务类型：${project.category}`,
     `- 直接落地场景：${project.scenario}`,
     `- 部署方式：${project.deploy}`,
     `- 搞钱路径：${project.monetization}`,
     `- 适合谁：${project.fit}`,
-  ].join("\n")).join("\n\n");
-  return [
-    `# ${COMMERCIAL_TITLE}`,
-    "",
-    `> 更新日期：${date}。优先选择能在 1-7 天内部署、交付并收款的开源项目。上线前请核对项目许可证、第三方服务条款、数据合规和实际成本。`,
-    "",
-    rows,
   ].join("\n");
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
 /**
- * Projects to highlight today.
+ * Short digest of today's batch for the daily Feishu push.
  *
- * The list itself is curated and changes rarely, so a rotating pick is what
- * keeps the daily push worth opening: over three weeks every project gets a
- * turn as the day's headline instead of the same three showing up forever.
- * The rotation is derived from the date alone so a re-run of the same day
- * produces the same card and does not look like new information.
+ * One line per project so the card stays scannable on a phone; the scenario and
+ * the money path are what make an entry actionable, so those are the two fields
+ * that survive the compression.
  */
-export function commercialPicks(now = new Date(), count = 3): Project[] {
-  const day = Math.floor(now.getTime() / DAY_MS);
-  const start = (((day % PROJECTS.length) + PROJECTS.length) % PROJECTS.length);
-  return Array.from({ length: Math.min(count, PROJECTS.length) }, (_, index) =>
-    PROJECTS[(start + index) % PROJECTS.length]!,
-  );
-}
+export function summarizeCommercialBoard(now: Date = new Date()): string {
+  const date = commercialDate(now);
+  const day = commercialDayIndex(date);
+  const projects = rosterForDay(day);
 
-/**
- * Short digest of the money board for the daily Feishu push.
- *
- * Rendered as `lark_md` rather than plain text so the chat card can bold the
- * project names. Kept to one line per project because a group bot card is read
- * on a phone, where a long paragraph is worse than a compact list.
- */
-export function summarizeCommercialBoard(now = new Date(), count = 3): string {
-  const date = now.toISOString().slice(0, 10);
-  const directions = new Set(PROJECTS.map((project) => project.category)).size;
-  const lines = [
-    `**搞钱项目精选 Top ${PROJECTS.length}**（${date} 更新）`,
-    `全部可直接部署上线，覆盖 ${directions} 个变现方向。今日聚焦：`,
-  ];
-  for (const [index, project] of commercialPicks(now, count).entries()) {
-    lines.push(
-      `${index + 1}. **${project.name}**（${project.category}）：${project.scenario}` +
-        ` → ${project.deploy} → ${project.monetization}`,
-    );
-  }
-  return lines.join("\n");
+  return [
+    `**搞钱项目精选 Top 20**（${date} · 第 ${day + 1} 批）`,
+    "今天这 20 个都能直接部署上线，同一轮内不重复，每批都按日期留在知识库里。",
+    ...projects.map(
+      (project, index) =>
+        `${index + 1}. **${project.name}**（${project.category}）：${project.scenario} → ${project.monetization}`,
+    ),
+  ].join("\n");
 }
