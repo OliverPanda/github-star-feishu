@@ -289,7 +289,11 @@ async function main(): Promise<void> {
     }
 
     if (!values["no-notify"] && subscriptions.webhook) {
-      await notifyBatchResult(result, { webhook: subscriptions.webhook, log });
+      await notifyBatchResult(result, {
+        webhook: subscriptions.webhook,
+        wikiBaseUrl: subscriptions.wikiBaseUrl,
+        log,
+      });
     }
 
     log(`\n完成：新增 ${result.newStars} 个 star，失败 ${result.failed} 个账号`);

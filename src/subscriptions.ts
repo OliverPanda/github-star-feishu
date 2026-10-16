@@ -46,6 +46,12 @@ const FileSchema = z.object({
   space_id: IdString.optional(),
   /** Parent node token, so every author subtree lands under one section. */
   parent_node: IdString.optional(),
+  /**
+   * Prefix that turns a wiki node token into a browser link, e.g.
+   * `https://your-tenant.feishu.cn/wiki/`. Only used to build the links in the
+   * daily push, because the wiki API returns tokens rather than URLs.
+   */
+  wiki_url_base: z.string().trim().url("wiki_url_base 必须是完整 URL").optional(),
   /** Webhook that receives the run summary; omitted means "do not notify". */
   webhook: z.string().trim().url("webhook 必须是完整 URL").optional(),
   /**
@@ -72,6 +78,7 @@ export interface Subscriptions {
   space: string;
   spaceId: string | undefined;
   parentNode: string | undefined;
+  wikiBaseUrl: string | undefined;
   webhook: string | undefined;
   trending: boolean;
   authors: Subscription[];
@@ -131,6 +138,7 @@ export function parseSubscriptions(raw: string): Subscriptions {
     space: result.data.space,
     spaceId: result.data.space_id,
     parentNode: result.data.parent_node,
+    wikiBaseUrl: result.data.wiki_url_base,
     webhook: result.data.webhook,
     trending: result.data.trending,
     authors: result.data.authors.map((author) => ({

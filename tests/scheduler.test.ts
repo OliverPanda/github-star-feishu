@@ -21,7 +21,9 @@ const config: AppConfig = {
 const success: SyncServiceResult = {
   spaceId: "space", outcomes: [], indexNodeToken: "index", indexUnchanged: true,
   indexMarkdown: "", trendingNodeToken: "board", trendingUnchanged: false,
-  trendingCount: 10, trendingError: null, newStars: 0, failed: 0, runId: 1, skipped: [],
+  trendingCount: 10, trendingError: null, commercialNodeToken: "money",
+  commercialUnchanged: false, commercialSummary: "", commercialError: null,
+  newStars: 0, failed: 0, runId: 1, skipped: [],
 };
 
 describe("service daily scheduler", () => {

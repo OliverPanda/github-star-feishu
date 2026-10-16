@@ -25,6 +25,7 @@ import {
   COMMERCIAL_DOC_KEY,
   COMMERCIAL_TITLE,
   renderCommercialBoard,
+  summarizeCommercialBoard,
 } from "./commercial-board.js";
 
 export interface BatchOptions {
@@ -92,6 +93,13 @@ export interface BatchResult {
   trendingCount: number;
   /** Populated when the board could not be published; the run still succeeds. */
   trendingError: string | null;
+  /** Money board node, or null when it was skipped or failed. */
+  commercialNodeToken: string | null;
+  commercialUnchanged: boolean;
+  /** Short digest of the money board, pushed to Feishu with the run summary. */
+  commercialSummary: string;
+  /** Populated when the money board could not be published. */
+  commercialError: string | null;
   newStars: number;
   failed: number;
 }
@@ -223,7 +231,7 @@ export async function runBatch(options: BatchOptions): Promise<BatchResult> {
   // The standalone boards are enabled for normal daily runs. Keep the
   // explicit no-trending/test mode lightweight and preserve the empty-batch
   // behavior used by dry runs.
-  if (trending && authors.length > 0) await publishCommercialBoard();
+  const money = trending && authors.length > 0 ? await publishCommercialBoard() : emptyMoney();
 
   return {
     spaceId,
@@ -235,12 +243,20 @@ export async function runBatch(options: BatchOptions): Promise<BatchResult> {
     trendingUnchanged: board.skipped,
     trendingCount: board.count,
     trendingError: board.error,
+    commercialNodeToken: money.nodeToken,
+    commercialUnchanged: money.skipped,
+    commercialSummary: money.summary,
+    commercialError: money.error,
     newStars,
     failed: outcomes.filter((outcome) => outcome.error).length,
   };
 
   function emptyBoard() {
     return { nodeToken: null, skipped: false, count: 0, error: null };
+  }
+
+  function emptyMoney() {
+    return { nodeToken: null, skipped: false, summary: "", error: null };
   }
 
   /**
@@ -295,7 +311,20 @@ export async function runBatch(options: BatchOptions): Promise<BatchResult> {
     }
   }
 
-  async function publishCommercialBoard(): Promise<void> {
+  /**
+   * Publish the curated money board and return its digest for the Feishu push.
+   *
+   * Failure is isolated like the trending board's: the board is a bonus page,
+   * and a wiki hiccup while writing it must not invalidate the author syncs
+   * that already succeeded.
+   */
+  async function publishCommercialBoard(): Promise<{
+    nodeToken: string | null;
+    skipped: boolean;
+    summary: string;
+    error: string | null;
+  }> {
+    const summary = summarizeCommercialBoard(now);
     try {
       const published = await publishDocument({
         db,
@@ -312,8 +341,18 @@ export async function runBatch(options: BatchOptions): Promise<BatchResult> {
       log(
         `\n搞钱项目精选：${published.skipped ? "内容未变化，已跳过" : `已更新 ${published.nodeToken}`}`,
       );
+      return {
+        nodeToken: published.nodeToken,
+        skipped: published.skipped,
+        summary,
+        error: null,
+      };
     } catch (error) {
-      log(`\n搞钱项目精选发布失败（不影响 Star 同步）：${describe(error)}`);
+      const detail = describe(error);
+      log(`\n搞钱项目精选发布失败（不影响 Star 同步）：${detail}`);
+      // The digest still goes out: the curated list is generated locally, so
+      // the reader gets today's picks even when the wiki write failed.
+      return { nodeToken: null, skipped: false, summary, error: detail };
     }
   }
 

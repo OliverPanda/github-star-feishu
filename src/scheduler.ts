@@ -69,6 +69,9 @@ export function createSyncScheduler(options: {
             if (outcome.error) lines.push(`${outcome.login}：${outcome.error}`);
           }
           if (trendingFailed) lines.push(`趋势榜失败：${result.trendingError ?? "暂无数据"}`);
+          // The money board is written by the same run, so its failure belongs
+          // in the same message instead of only in the run log.
+          if (result.commercialError) lines.push(`搞钱项目精选失败：${result.commercialError}`);
           message = lines.join("\n");
         } catch (error) {
           status = "failed";

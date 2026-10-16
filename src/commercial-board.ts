@@ -55,3 +55,45 @@ export function renderCommercialBoard(now = new Date(), _model?: LanguageModel):
     rows,
   ].join("\n");
 }
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Projects to highlight today.
+ *
+ * The list itself is curated and changes rarely, so a rotating pick is what
+ * keeps the daily push worth opening: over three weeks every project gets a
+ * turn as the day's headline instead of the same three showing up forever.
+ * The rotation is derived from the date alone so a re-run of the same day
+ * produces the same card and does not look like new information.
+ */
+export function commercialPicks(now = new Date(), count = 3): Project[] {
+  const day = Math.floor(now.getTime() / DAY_MS);
+  const start = (((day % PROJECTS.length) + PROJECTS.length) % PROJECTS.length);
+  return Array.from({ length: Math.min(count, PROJECTS.length) }, (_, index) =>
+    PROJECTS[(start + index) % PROJECTS.length]!,
+  );
+}
+
+/**
+ * Short digest of the money board for the daily Feishu push.
+ *
+ * Rendered as `lark_md` rather than plain text so the chat card can bold the
+ * project names. Kept to one line per project because a group bot card is read
+ * on a phone, where a long paragraph is worse than a compact list.
+ */
+export function summarizeCommercialBoard(now = new Date(), count = 3): string {
+  const date = now.toISOString().slice(0, 10);
+  const directions = new Set(PROJECTS.map((project) => project.category)).size;
+  const lines = [
+    `**搞钱项目精选 Top ${PROJECTS.length}**（${date} 更新）`,
+    `全部可直接部署上线，覆盖 ${directions} 个变现方向。今日聚焦：`,
+  ];
+  for (const [index, project] of commercialPicks(now, count).entries()) {
+    lines.push(
+      `${index + 1}. **${project.name}**（${project.category}）：${project.scenario}` +
+        ` → ${project.deploy} → ${project.monetization}`,
+    );
+  }
+  return lines.join("\n");
+}

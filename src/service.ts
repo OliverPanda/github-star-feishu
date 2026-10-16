@@ -24,6 +24,7 @@ export const SETTING_KEYS = {
   space: "space",
   spaceId: "space_id",
   parentNode: "parent_node",
+  wikiBaseUrl: "wiki_url_base",
   webhook: "webhook",
   trending: "trending",
 } as const;
@@ -45,6 +46,7 @@ export function subscriptionsFromDb(db: Db): Subscriptions {
     space: getSetting(db, SETTING_KEYS.space) ?? "GitHub Star 精选",
     spaceId: getSetting(db, SETTING_KEYS.spaceId),
     parentNode: getSetting(db, SETTING_KEYS.parentNode),
+    wikiBaseUrl: getSetting(db, SETTING_KEYS.wikiBaseUrl),
     webhook: getSetting(db, SETTING_KEYS.webhook),
     trending: readTrendingSetting(db),
     authors,
@@ -82,6 +84,7 @@ export function seedSubscriptions(db: Db, subscriptions: Subscriptions): number 
   setSetting(db, SETTING_KEYS.space, subscriptions.space);
   if (subscriptions.spaceId) setSetting(db, SETTING_KEYS.spaceId, subscriptions.spaceId);
   if (subscriptions.parentNode) setSetting(db, SETTING_KEYS.parentNode, subscriptions.parentNode);
+  if (subscriptions.wikiBaseUrl) setSetting(db, SETTING_KEYS.wikiBaseUrl, subscriptions.wikiBaseUrl);
   if (subscriptions.webhook) setSetting(db, SETTING_KEYS.webhook, subscriptions.webhook);
   setSetting(db, SETTING_KEYS.trending, subscriptions.trending ? "true" : "false");
 

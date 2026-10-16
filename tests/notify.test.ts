@@ -27,6 +27,10 @@ function result(overrides: Partial<BatchResult> = {}): BatchResult {
     trendingUnchanged: false,
     trendingCount: 0,
     trendingError: null,
+    commercialNodeToken: null,
+    commercialUnchanged: false,
+    commercialSummary: "",
+    commercialError: null,
     newStars: 0,
     failed: 0,
     ...overrides,
@@ -78,6 +82,40 @@ describe("buildSummaryCard", () => {
     const card = buildSummaryCard(result()) as any;
     const content = card.card.elements[0].text.content as string;
     expect(content).toContain("_还没有配置任何作者。_");
+  });
+
+  it("adds a money board block with links when the digest is present", () => {
+    const card = buildSummaryCard(
+      result({
+        commercialSummary: "**搞钱项目精选 Top 20**（2026-10-16 更新）",
+        commercialNodeToken: "wikcnMoney",
+        trendingNodeToken: "wikcnTrending",
+      }),
+      { wikiBaseUrl: "https://pcnymmlbor6m.feishu.cn/wiki/" },
+    ) as any;
+
+    // The author summary stays first so existing readers keep their bearings.
+    expect(card.card.elements[0].text.content).toContain("**知识库**");
+    expect(card.card.elements).toHaveLength(3);
+    expect(card.card.elements[1].tag).toBe("hr");
+    const money = card.card.elements[2].text.content as string;
+    expect(money).toContain("搞钱项目精选 Top 20**（2026-10-16 更新）");
+    expect(money).toContain("https://pcnymmlbor6m.feishu.cn/wiki/wikcnMoney");
+    expect(money).toContain("https://pcnymmlbor6m.feishu.cn/wiki/wikcnTrending");
+  });
+
+  it("leaves the card to the author summary when the money board is skipped", () => {
+    const card = buildSummaryCard(result({ commercialSummary: "" })) as any;
+    expect(card.card.elements).toHaveLength(1);
+  });
+
+  it("reports a failed money write without dropping the digest", () => {
+    const card = buildSummaryCard(
+      result({ commercialSummary: "今日聚焦", commercialError: "权限不足" }),
+    ) as any;
+    const money = card.card.elements[2].text.content as string;
+    expect(money).toContain("今日聚焦");
+    expect(money).toContain("⚠️ 知识库页面写入失败：权限不足");
   });
 });
 

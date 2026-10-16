@@ -14,6 +14,10 @@ space: GitHub Star 精选
 # 可选：所有作者文档都挂在这个父节点下（用 feishu-cli wiki nodes 查 token）
 # parent_node: wikcnxxxxxxxxxxxxxxxx
 
+# 可选：知识库链接前缀，用来在推送卡片里把文档 token 变成可点击链接
+# 取飞书知识库任意一篇文档的地址前缀即可
+# wiki_url_base: https://your-tenant.feishu.cn/wiki/
+
 # 可选：飞书自定义机器人 Webhook，每次同步完成后推送摘要卡片
 # 创建方式：飞书群 -> 设置 -> 群机器人 -> 添加机器人 -> 自定义机器人
 # webhook: https://open.feishu.cn/open-apis/bot/v2/hook/xxxxxxxx
