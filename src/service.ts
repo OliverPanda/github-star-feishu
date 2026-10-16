@@ -26,6 +26,7 @@ export const SETTING_KEYS = {
   parentNode: "parent_node",
   wikiBaseUrl: "wiki_url_base",
   webhook: "webhook",
+  notifyChat: "notify_chat",
   trending: "trending",
 } as const;
 
@@ -48,6 +49,7 @@ export function subscriptionsFromDb(db: Db): Subscriptions {
     parentNode: getSetting(db, SETTING_KEYS.parentNode),
     wikiBaseUrl: getSetting(db, SETTING_KEYS.wikiBaseUrl),
     webhook: getSetting(db, SETTING_KEYS.webhook),
+    notifyChat: getSetting(db, SETTING_KEYS.notifyChat),
     trending: readTrendingSetting(db),
     authors,
   };
@@ -86,6 +88,7 @@ export function seedSubscriptions(db: Db, subscriptions: Subscriptions): number 
   if (subscriptions.parentNode) setSetting(db, SETTING_KEYS.parentNode, subscriptions.parentNode);
   if (subscriptions.wikiBaseUrl) setSetting(db, SETTING_KEYS.wikiBaseUrl, subscriptions.wikiBaseUrl);
   if (subscriptions.webhook) setSetting(db, SETTING_KEYS.webhook, subscriptions.webhook);
+  if (subscriptions.notifyChat) setSetting(db, SETTING_KEYS.notifyChat, subscriptions.notifyChat);
   setSetting(db, SETTING_KEYS.trending, subscriptions.trending ? "true" : "false");
 
   return imported;

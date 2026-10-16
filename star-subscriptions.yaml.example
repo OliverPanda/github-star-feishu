@@ -22,6 +22,13 @@ space: GitHub Star 精选
 # 创建方式：飞书群 -> 设置 -> 群机器人 -> 添加机器人 -> 自定义机器人
 # webhook: https://open.feishu.cn/open-apis/bot/v2/hook/xxxxxxxx
 
+# 可选：把摘要卡片发给某个群（应用机器人自己发，不需要建自定义机器人）
+# 群 id 用 oc_ 开头，把应用机器人拉进群后在群设置里能看到，或用
+#   curl -H "Authorization: Bearer <tenant_access_token>" \
+#     "https://open.feishu.cn/open-apis/im/v1/chats" 查
+# 配了 notify_chat 时优先用它，webhook 只在没有 notify_chat 时生效。
+# notify_chat: oc_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
 # ---- 趋势榜 ----
 # 除了整理各作者的 Star，还会额外发布一篇「GitHub 上涨趋势榜」：
 # 抓取 github.com/trending 的今日涨幅 TOP 10，写入知识库根层。

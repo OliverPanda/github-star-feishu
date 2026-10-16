@@ -145,6 +145,32 @@ describe("notifyBatchResult", () => {
     expect(JSON.parse(init.body as string).msg_type).toBe("interactive");
   });
 
+  it("prefers the app bot channel when one is configured", async () => {
+    const fetchImpl = vi.fn(async (url: string) => {
+      if (url.includes("tenant_access_token")) {
+        return new Response(JSON.stringify({ code: 0, tenant_access_token: "t-1", expire: 7200 }), {
+          status: 200,
+        });
+      }
+      return new Response(JSON.stringify({ code: 0 }), { status: 200 });
+    });
+
+    const sent = await notifyBatchResult(
+      result({ commercialSummary: "今日聚焦" }),
+      {
+        webhook: WEBHOOK,
+        app: { appId: "cli_notify", appSecret: "s", chatId: "oc_1" },
+        fetchImpl: fetchImpl as any,
+      },
+    );
+
+    expect(sent).toBe(true);
+    // The webhook must not be called as well, or every run would notify twice.
+    const urls = fetchImpl.mock.calls.map((call) => call[0] as string);
+    expect(urls.some((url) => url === WEBHOOK)).toBe(false);
+    expect(urls.at(-1)).toContain("/im/v1/messages");
+  });
+
   it("throws on a non-2xx response", async () => {
     const fetchImpl = vi.fn(async () => new Response("nope", { status: 500 }));
 

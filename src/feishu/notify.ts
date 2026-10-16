@@ -1,8 +1,16 @@
 import type { BatchResult } from "../batch.js";
+import { sendChatCard } from "./app-notify.js";
 
 export interface NotifyOptions {
   /** Group bot webhook; when absent the caller simply skips notifying. */
   webhook?: string | undefined;
+  /**
+   * App-bot channel: send the same card into a chat the app already belongs to.
+   *
+   * Preferred over the webhook when the app credentials are already available,
+   * because nothing has to be created or copied by hand.
+   */
+  app?: { appId: string; appSecret: string; chatId: string } | undefined;
   /**
    * Prefix that turns a wiki node token into a clickable link, such as
    * `https://example.feishu.cn/wiki/`. Wiki节点只能拿到 token，链接前缀只能来自
@@ -25,11 +33,50 @@ export async function notifyBatchResult(
   result: BatchResult,
   options: NotifyOptions,
 ): Promise<boolean> {
-  return sendPayload(buildSummaryCard(result, options), options);
+  return notifyCard(buildSummaryCard(result, options), options);
+}
+
+function fetchOption(options: NotifyOptions): Pick<NotifyOptions, "fetchImpl" | "log"> {
+  return options.fetchImpl ? { fetchImpl: options.fetchImpl, log: options.log } : { log: options.log };
 }
 
 export async function notifyText(message: string, options: NotifyOptions): Promise<boolean> {
   return sendPayload({ msg_type: "text", content: { text: message } }, options);
+}
+
+/**
+ * One-div card, shared by the run summary's neighbours and the standalone
+ * channel test, so a manual test exercises the same payload shape as the job.
+ */
+export function buildSimpleCard(input: {
+  title: string;
+  template: string;
+  content: string;
+}): { msg_type: "interactive"; card: Record<string, unknown> } {
+  return {
+    msg_type: "interactive",
+    card: {
+      config: { wide_screen_mode: true },
+      header: {
+        title: { tag: "plain_text", content: input.title },
+        template: input.template,
+      },
+      elements: [{ tag: "div", text: { tag: "lark_md", content: input.content } }],
+    },
+  };
+}
+
+/** Send an already-built card through whichever channel the config provides. */
+export async function notifyCard(
+  card: { msg_type: "interactive"; card: Record<string, unknown> },
+  options: NotifyOptions,
+): Promise<boolean> {
+  const { app } = options;
+  if (app) {
+    await sendChatCard(card.card, { ...app, ...fetchOption(options) });
+    return true;
+  }
+  return sendPayload(card, options);
 }
 
 async function sendPayload(payload: Record<string, unknown>, options: NotifyOptions): Promise<boolean> {
@@ -67,7 +114,7 @@ async function sendPayload(payload: Record<string, unknown>, options: NotifyOpti
 export function buildSummaryCard(
   result: BatchResult,
   options: Pick<NotifyOptions, "wikiBaseUrl"> = {},
-): Record<string, unknown> {
+): { msg_type: "interactive"; card: Record<string, unknown> } {
   const failed = result.outcomes.filter((outcome) => outcome.error);
   const ok = result.outcomes.filter((outcome) => !outcome.error);
   const lines: string[] = [];

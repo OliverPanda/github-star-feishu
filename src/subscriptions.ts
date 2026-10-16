@@ -55,6 +55,13 @@ const FileSchema = z.object({
   /** Webhook that receives the run summary; omitted means "do not notify". */
   webhook: z.string().trim().url("webhook 必须是完整 URL").optional(),
   /**
+   * Chat id (oc_…) of a group the app's bot belongs to.
+   *
+   * Used instead of `webhook` when the app credentials are already configured:
+   * the daily card then needs nothing to be created or copied by hand.
+   */
+  notify_chat: IdString.optional(),
+  /**
    * Whether to publish the GitHub trending board as its own document.
    *
    * On by default: the board is the only page in the knowledge base that is
@@ -80,6 +87,7 @@ export interface Subscriptions {
   parentNode: string | undefined;
   wikiBaseUrl: string | undefined;
   webhook: string | undefined;
+  notifyChat: string | undefined;
   trending: boolean;
   authors: Subscription[];
 }
@@ -140,6 +148,7 @@ export function parseSubscriptions(raw: string): Subscriptions {
     parentNode: result.data.parent_node,
     wikiBaseUrl: result.data.wiki_url_base,
     webhook: result.data.webhook,
+    notifyChat: result.data.notify_chat,
     trending: result.data.trending,
     authors: result.data.authors.map((author) => ({
       login: author.login,

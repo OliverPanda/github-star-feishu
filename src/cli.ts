@@ -17,7 +17,9 @@ import { publishDocument } from "./publish.js";
 import { FeishuCliWriter } from "./feishu/cli.js";
 import { readLoginStatus, runLoginFlow } from "./feishu/login-flow.js";
 import { LocalFsWriter } from "./feishu/local.js";
-import { notifyBatchResult } from "./feishu/notify.js";
+import { buildSimpleCard, notifyBatchResult, notifyCard } from "./feishu/notify.js";
+import { COMMERCIAL_DOC_KEY, summarizeCommercialBoard } from "./commercial-board.js";
+import { getWikiNode } from "./store.js";
 import {
   activeAuthors,
   DEFAULT_SUBSCRIPTIONS_FILE,
@@ -37,6 +39,7 @@ const USAGE = `github-star-rag — 把任意 GitHub 账号的 Star 整理成飞�
   npm run cli -- login                    扫码登录飞书（首次会自动创建你的个人应用）
   npm run cli -- logout                   退出飞书登录
   npm run cli -- whoami                   查看飞书登录状态
+  npm run cli -- notify:test              往配置的群发一条搞钱日报测试卡片（验证推送通道）
   npm run cli -- login:github             扫码登录 GitHub，并把 Token 写入 .env
   npm run cli -- logout:github            退出 GitHub 登录并清空 .env 里的 Token
   npm run cli -- whoami:github            查看 GitHub 登录状态
@@ -223,6 +226,11 @@ async function main(): Promise<void> {
     return;
   }
 
+  if (command === "notify:test") {
+    await sendTestNotification();
+    return;
+  }
+
   if (command !== "sync" && command !== "publish") {
     fail(`未知命令：${command}\n\n${USAGE}`);
   }
@@ -288,12 +296,29 @@ async function main(): Promise<void> {
       log(`      已导出汇总 ${file}`);
     }
 
-    if (!values["no-notify"] && subscriptions.webhook) {
-      await notifyBatchResult(result, {
-        webhook: subscriptions.webhook,
-        wikiBaseUrl: subscriptions.wikiBaseUrl,
-        log,
-      });
+    if (!values["no-notify"]) {
+      // The app channel wins when both are configured: it is the one that needs
+      // no webhook to be created and re-pasted whenever it rotates.
+      const app = resolveNotifyApp(subscriptions.notifyChat);
+      if (app || subscriptions.webhook) {
+        if (app) log(`      推送飞书群消息（${subscriptions.notifyChat}）`);
+        try {
+          await notifyBatchResult(result, {
+            ...(app ? { app } : {}),
+            webhook: subscriptions.webhook,
+            wikiBaseUrl: subscriptions.wikiBaseUrl,
+            log,
+          });
+        } catch (error) {
+          // The knowledge base is already updated at this point, and a failed
+          // job would also discard the sync cache, turning one broken webhook
+          // into a full re-sync the next day. Report it and keep the run green.
+          const detail = error instanceof Error ? error.message : String(error);
+          log(`      飞书通知失败（不影响本次同步）：${detail}`);
+        }
+      } else {
+        log("      未配置 webhook 或 notify_chat，跳过通知");
+      }
     }
 
     log(`\n完成：新增 ${result.newStars} 个 star，失败 ${result.failed} 个账号`);
@@ -306,6 +331,47 @@ async function main(): Promise<void> {
     // One broken account should surface as a failed job so GitHub Actions can
     // notify, without hiding that every other author did update.
     if (result.failed) process.exitCode = 1;
+  }
+
+  /**
+   * Send the money digest on its own.
+   *
+   * A daily job only proves the channel works once a day, and a full run costs
+   * the whole LLM classification budget, so the channel gets its own command.
+   */
+  async function sendTestNotification(): Promise<void> {
+    const subscriptions = loadSubscriptions(values.config ?? DEFAULT_SUBSCRIPTIONS_FILE);
+    const app = resolveNotifyApp(subscriptions.notifyChat);
+    if (!app && !subscriptions.webhook) {
+      fail("订阅文件里既没有 notify_chat 也没有 webhook，无法推送");
+    }
+
+    const spaceId = values["space-id"] ?? subscriptions.spaceId ?? config.feishu.spaceId;
+    const node = spaceId ? getWikiNode(db, COMMERCIAL_DOC_KEY, spaceId) : undefined;
+    const link = node && subscriptions.wikiBaseUrl
+      ? `📄 [搞钱项目精选 Top 20](${subscriptions.wikiBaseUrl.replace(/\/+$/, "")}/${node.nodeToken})`
+      : "📄 搞钱项目精选 Top 20（知识库文档，首次同步后生成）";
+
+    const card = buildSimpleCard({
+      title: "搞钱项目精选 Top 20 · 推送测试",
+      template: "blue",
+      content: [summarizeCommercialBoard(new Date()), link].join("\n\n"),
+    });
+
+    const channel = app ? `应用机器人（${subscriptions.notifyChat}）` : "自定义机器人 webhook";
+    log(`      推送到：${channel}`);
+    await notifyCard(card, {
+      ...(app ? { app } : {}),
+      webhook: subscriptions.webhook,
+      log,
+    });
+    log("\n推送完成，去飞书看看是否收到卡片。");
+  }
+
+  /** App credentials are only usable as a channel when a target chat is set. */
+  function resolveNotifyApp(chatId: string | undefined) {
+    if (!chatId || !config.feishu.appId || !config.feishu.appSecret) return undefined;
+    return { appId: config.feishu.appId, appSecret: config.feishu.appSecret, chatId };
   }
 
   function buildModel() {
