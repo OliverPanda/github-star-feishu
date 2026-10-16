@@ -21,6 +21,11 @@ import {
 import type { Subscription } from "./subscriptions.js";
 import { syncAuthor } from "./sync.js";
 import { buildTrendingBoard, saveTrendingSnapshot, type TrendingSince } from "./trending-board.js";
+import {
+  COMMERCIAL_DOC_KEY,
+  COMMERCIAL_TITLE,
+  renderCommercialBoard,
+} from "./commercial-board.js";
 
 export interface BatchOptions {
   db: Db;
@@ -215,6 +220,10 @@ export async function runBatch(options: BatchOptions): Promise<BatchResult> {
   const newStars = outcomes.reduce((sum, outcome) => sum + outcome.newStars, 0);
   const index = await publishIndex();
   const board = trending ? await publishTrending() : emptyBoard();
+  // The standalone boards are enabled for normal daily runs. Keep the
+  // explicit no-trending/test mode lightweight and preserve the empty-batch
+  // behavior used by dry runs.
+  if (trending && authors.length > 0) await publishCommercialBoard();
 
   return {
     spaceId,
@@ -283,6 +292,28 @@ export async function runBatch(options: BatchOptions): Promise<BatchResult> {
       const detail = describe(error);
       log(`\n趋势榜发布失败（不影响 Star 同步）：${detail}`);
       return { nodeToken: null, skipped: false, count: 0, error: detail };
+    }
+  }
+
+  async function publishCommercialBoard(): Promise<void> {
+    try {
+      const published = await publishDocument({
+        db,
+        writer,
+        login: COMMERCIAL_DOC_KEY,
+        docKey: COMMERCIAL_DOC_KEY,
+        spaceId,
+        title: COMMERCIAL_TITLE,
+        markdown: renderCommercialBoard(now, model),
+        parentNodeToken: indexParentNodeToken,
+        force,
+        log,
+      });
+      log(
+        `\n搞钱项目精选：${published.skipped ? "内容未变化，已跳过" : `已更新 ${published.nodeToken}`}`,
+      );
+    } catch (error) {
+      log(`\n搞钱项目精选发布失败（不影响 Star 同步）：${describe(error)}`);
     }
   }
 
