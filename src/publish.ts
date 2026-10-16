@@ -98,7 +98,15 @@ export async function ensureSection(request: {
 }): Promise<SectionResult> {
   const { db, writer, login, title, spaceId, parentNodeToken, log = () => {} } = request;
   const docKey = sectionKey(login);
-  const existing = getWikiNode(db, docKey, spaceId);
+  const existing = await findOrHydrateNode({
+    db,
+    writer,
+    docKey,
+    spaceId,
+    title,
+    parentNodeToken,
+    log,
+  });
 
   if (existing) {
     return { nodeToken: existing.nodeToken, created: false };
@@ -152,7 +160,15 @@ export async function publishDocument(request: PublishRequest): Promise<PublishR
   const contentHash = hashContent(markdown);
   const docKey = request.docKey ?? documentKey(login);
 
-  const existing = getWikiNode(db, docKey, spaceId);
+  const existing = await findOrHydrateNode({
+    db,
+    writer,
+    docKey,
+    spaceId,
+    title,
+    parentNodeToken,
+    log,
+  });
 
   // Placement is corrected before the skip test below: an unchanged body still
   // says nothing about whether the node sits where it belongs.
@@ -230,6 +246,56 @@ export async function publishDocument(request: PublishRequest): Promise<PublishR
   });
 
   return { ...result, contentHash };
+}
+
+/**
+ * Recover the local node index from Feishu after a failed CI run.
+ *
+ * The Actions cache is only saved after a successful job. A node can therefore
+ * exist remotely while its SQLite row is missing locally. Looking up the exact
+ * title under the intended parent makes publishing idempotent across that
+ * failure boundary and prevents another same-named page from being created.
+ */
+async function findOrHydrateNode(request: {
+  db: Db;
+  writer: WikiWriter;
+  docKey: string;
+  spaceId: string;
+  title: string;
+  parentNodeToken?: string | undefined;
+  log: (message: string) => void;
+}): Promise<WikiNodeRecord | undefined> {
+  const { db, writer, docKey, spaceId, title, parentNodeToken, log } = request;
+  const local = getWikiNode(db, docKey, spaceId);
+  if (local) return local;
+  if (!writer.listNodes) return undefined;
+
+  try {
+    const matches = (await writer.listNodes(spaceId, parentNodeToken)).filter(
+      (node) => node.title.trim() === title.trim(),
+    );
+    const match = matches[0];
+    if (!match) return undefined;
+    if (matches.length > 1) {
+      log(`      发现 ${matches.length} 个同名节点，复用最早返回的节点：${title}`);
+    } else {
+      log(`      从知识库找回已有节点：${title}`);
+    }
+    const hydrated: WikiNodeRecord = {
+      spaceId,
+      nodeToken: match.nodeToken,
+      documentId: null,
+      contentHash: null,
+      parentNodeToken: parentNodeToken ?? null,
+      title,
+    };
+    saveWikiNode(db, docKey, hydrated);
+    return hydrated;
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    log(`      反查已有节点失败，将按新节点处理（${title}）：${detail}`);
+    return undefined;
+  }
 }
 
 /**
