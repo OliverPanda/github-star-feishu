@@ -140,7 +140,9 @@ cp star-subscriptions.yaml.example star-subscriptions.yaml
 
 ```yaml
 space: GitHub Star 精选
+wiki_url_base: https://your-tenant.feishu.cn/wiki/          # 可选，推送卡片里的文档链接前缀
 webhook: https://open.feishu.cn/open-apis/bot/v2/hook/xxx   # 可选，同步完推送卡片
+notify_chat: oc_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx            # 可选，用应用机器人把卡片发进群（推荐）
 trending: true                                             # 可选，顺带发布「GitHub 上涨趋势榜」
 authors:
   - login: your-own-login
@@ -152,6 +154,20 @@ authors:
 ```
 
 `star-subscriptions.yaml` **含 webhook，已在 `.gitignore` 中**，只提交 `.example`。
+
+推送有两条通道，配置了 `notify_chat` 时优先用应用机器人：
+
+| 通道 | 怎么来 | 适合 |
+|---|---|---|
+| `notify_chat` | 把应用机器人拉进群，填群 ID（`oc_` 开头） | 已经有应用凭证时最省事，不用单独建机器人 |
+| `webhook` | 群里手动添加「自定义机器人」，复制 Webhook 地址 | 不想让应用发消息时 |
+
+每次同步完成后推送的是摘要卡片：各作者新增数量 + 「搞钱项目精选 Top 20」当日聚焦的三个方向，
+以及知识库文档链接（需要 `wiki_url_base`）。通道是否打通可以单独验证，不必跑一整轮同步：
+
+```bash
+npm run cli -- notify:test
+```
 
 `space` 只是**定位用的名称**：同步会先在你的飞书里查找同名的知识库并写入其中，
 不会另建一个。找不到同名知识库时会直接报错并列出你可选的库，
@@ -292,6 +308,15 @@ npm run cli -- logout:github            # 退出 GitHub 登录并清空 .env 中
 | `--create-space` | 允许在找不到同名知识库时新建。**默认关闭**，避免每次同步都造一个新的 |
 | `--parent <token>` | 写入指定父节点下 |
 | `--force` | 忽略内容哈希，强制重写 |
+
+## 搞钱项目精选 Top 20
+
+除了整理各作者的 Star，每轮同步还会发布一篇「搞钱项目精选 Top 20」：
+20 个能直接部署上线、当天或当周就能接到活的开源项目（部署平台、AI 应用、自动化、电商、
+CRM、客服、数据分析等），每个都写明落地场景、部署方式和搞钱路径。它用固定文档标识写入，
+因此每天是**更新同一篇**，不会堆出一串同名页面。
+
+推送卡片里的搞钱摘要按日期轮换，21 天里 20 个项目都会轮到当天的头条。
 
 ## 本地 API 服务（插件后端）
 
