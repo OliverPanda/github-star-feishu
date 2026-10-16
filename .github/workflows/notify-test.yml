@@ -1,0 +1,30 @@
+name: 测试飞书推送
+
+# 独立于每日同步：验证推送通道不需要跑一整轮同步，也不需要 GitHub 或
+# LLM 的额度。手动触发即可，几十秒出结果（飞书群里应该出现一张卡片）。
+on:
+  workflow_dispatch:
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 发送测试卡片
+        env:
+          # 推送用的是应用机器人自身的凭证，不需要 feishu-cli 或用户 Token
+          FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
+          FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
+          STAR_SUBSCRIPTIONS: ${{ secrets.STAR_SUBSCRIPTIONS }}
+        run: npm run cli -- notify:test
