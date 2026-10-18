@@ -6,6 +6,7 @@ import {
   commercialDaysPerCycle,
   commercialHistory,
   commercialRoster,
+  projectUrl,
   renderCommercialBoard,
   summarizeCommercialBoard,
 } from "../src/commercial-board.js";
@@ -139,12 +140,22 @@ describe("summarizeCommercialBoard", () => {
     expect(lines[0]).toContain("第 1 批");
     // 标题、说明，再加上每个项目一行。
     expect(lines).toHaveLength(COMMERCIAL_PER_DAY + 2);
-    expect(lines[2]).toMatch(/^1\. \*\*.+\*\*（.+）：.+ → .+$/);
+    // 项目名本身就是链接，飞书卡片里点一下就能打开仓库。
+    expect(lines[2]).toMatch(/^1\. \[.+\]\(https:\/\/github\.com\/[^)]+\)（.+）：.+ → .+$/);
 
-    for (const project of commercialRoster(START)) {
-      expect(summary).toContain(project.name);
+    for (const [index, project] of commercialRoster(START).entries()) {
+      expect(lines[index + 2]).toContain(`[${project.name}](${projectUrl(project)})`);
       expect(summary).toContain(project.monetization);
     }
+  });
+
+  it("每个项目的链接都指向它自己的 GitHub 仓库", () => {
+    const links = summarizeCommercialBoard(START)
+      .split("\n")
+      .slice(2)
+      .map((line) => /\]\((https:\/\/github\.com\/[^)]+)\)/.exec(line)?.[1]);
+
+    expect(links).toEqual(commercialRoster(START).map((project) => `https://github.com/${project.repo}`));
   });
 
   it("第二天推的是另一批", () => {

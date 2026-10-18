@@ -135,7 +135,7 @@ export function renderCommercialBoard(now: Date = new Date(), _model?: LanguageM
 function renderProject(project: CommercialProject, index: number): string {
   return [
     `### ${index}. ${project.name}`,
-    `- 项目地址：[${project.repo}](https://github.com/${project.repo})`,
+    `- 项目地址：[${project.repo}](${projectUrl(project)})`,
     `- 业务类型：${project.category}`,
     `- 直接落地场景：${project.scenario}`,
     `- 部署方式：${project.deploy}`,
@@ -144,12 +144,18 @@ function renderProject(project: CommercialProject, index: number): string {
   ].join("\n");
 }
 
+/** The repository URL behind a project, used by both the page and the card. */
+export function projectUrl(project: CommercialProject): string {
+  return `https://github.com/${project.repo}`;
+}
+
 /**
  * Short digest of today's batch for the daily Feishu push.
  *
  * One line per project so the card stays scannable on a phone; the scenario and
  * the money path are what make an entry actionable, so those are the two fields
- * that survive the compression.
+ * that survive the compression. The name carries the repository link, because
+ * the first thing a reader does after a card like this is open the project.
  */
 export function summarizeCommercialBoard(now: Date = new Date()): string {
   const date = commercialDate(now);
@@ -158,10 +164,11 @@ export function summarizeCommercialBoard(now: Date = new Date()): string {
 
   return [
     `**搞钱项目精选 Top 20**（${date} · 第 ${day + 1} 批）`,
-    "今天这 20 个都能直接部署上线，同一轮内不重复，每批都按日期留在知识库里。",
+    "今天这 20 个都能直接部署上线，同一轮内不重复；点项目名直达 GitHub 仓库，每批都按日期留在知识库里。",
     ...projects.map(
       (project, index) =>
-        `${index + 1}. **${project.name}**（${project.category}）：${project.scenario} → ${project.monetization}`,
+        `${index + 1}. [${project.name}](${projectUrl(project)})` +
+        `（${project.category}）：${project.scenario} → ${project.monetization}`,
     ),
   ].join("\n");
 }
