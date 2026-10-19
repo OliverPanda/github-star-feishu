@@ -23,6 +23,15 @@ export const ROSTER_PAGE_PATH = "/roster.html" as const;
  */
 export const TRENDING_PAGE_PATH = "/trending.html" as const;
 
+/**
+ * The weekly Top 10 page.
+ *
+ * It opens in a full tab because every card includes the detailed selection
+ * rationale; compressing ten of those into the 380px popup would defeat the
+ * purpose of explaining the picks.
+ */
+export const WEEKLY_MONEY_PAGE_PATH = "/weekly.html" as const;
+
 /** Reads the login back out of a `stars.html` location. */
 export function loginFromSearch(search: string): string {
   return new URLSearchParams(search).get("login")?.trim() ?? "";

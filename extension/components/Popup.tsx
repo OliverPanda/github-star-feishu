@@ -2,7 +2,11 @@ import { useCallback, useEffect, useState } from "react";
 import { browser } from "wxt/browser";
 import { ApiError, type RunSummary, type SubscriptionView } from "../lib/api.js";
 import { isValidLogin } from "../lib/github.js";
-import { ROSTER_PAGE_PATH, TRENDING_PAGE_PATH } from "../lib/author-page.js";
+import {
+  ROSTER_PAGE_PATH,
+  TRENDING_PAGE_PATH,
+  WEEKLY_MONEY_PAGE_PATH,
+} from "../lib/author-page.js";
 import { createClient } from "../lib/settings.js";
 import { SubscriptionList, formatTime } from "./SubscriptionList.js";
 
@@ -156,6 +160,18 @@ export function Popup() {
             }}
           >
             趋势榜
+          </button>
+          <button
+            type="button"
+            className="link"
+            title="汇总上一周的搞钱项目，按需求和落地难度精选 10 个"
+            onClick={() => {
+              void browser.tabs.create({
+                url: browser.runtime.getURL(WEEKLY_MONEY_PAGE_PATH),
+              });
+            }}
+          >
+            搞钱周报
           </button>
           <button
             type="button"

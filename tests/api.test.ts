@@ -15,6 +15,10 @@ import {
   upsertSubscription,
 } from "../src/store.js";
 import { saveTrendingSnapshot } from "../src/trending-board.js";
+import {
+  buildWeeklyMoneyReport,
+  saveWeeklyMoneySnapshot,
+} from "../src/weekly-money.js";
 
 const TOKEN = "test-token";
 
@@ -619,5 +623,57 @@ describe("trending api", () => {
   it("requires the bearer token", async () => {
     const app = createApi({ db, config: testConfig() });
     expect((await app.request("/api/trending")).status).toBe(401);
+  });
+});
+
+describe("weekly money api", () => {
+  let db: Db;
+
+  beforeEach(() => {
+    db = createTestDb();
+  });
+
+  it("reports an empty weekly board before the first sync", async () => {
+    const app = createApi({ db, config: testConfig() });
+    const response = await app.request("/api/weekly-money", { headers: auth() });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      generatedAt: null,
+      period: null,
+      candidateCount: 0,
+      picks: [],
+      pushedAt: null,
+    });
+  });
+
+  it("serves the exact Top 10 snapshot used for the Feishu push", async () => {
+    const report = buildWeeklyMoneyReport(new Date("2026-10-19T01:00:00Z"));
+    saveWeeklyMoneySnapshot(db, {
+      report,
+      pushedAt: "2026-10-19T02:00:00.000Z",
+    });
+
+    const app = createApi({ db, config: testConfig() });
+    const response = await app.request("/api/weekly-money", { headers: auth() });
+    const body = (await response.json()) as {
+      period: { key: string; label: string };
+      picks: Array<{ rank: number; reason: string; score: number }>;
+      pushedAt: string;
+    };
+
+    expect(response.status).toBe(200);
+    expect(body.period.key).toBe("2026-10-12_2026-10-18");
+    expect(body.picks).toHaveLength(10);
+    expect(body.picks[0]).toMatchObject({
+      rank: 1,
+      reason: expect.stringContaining("收入来自"),
+    });
+    expect(body.pushedAt).toBe("2026-10-19T02:00:00.000Z");
+  });
+
+  it("requires the bearer token", async () => {
+    const app = createApi({ db, config: testConfig() });
+    expect((await app.request("/api/weekly-money")).status).toBe(401);
   });
 });

@@ -13,6 +13,11 @@ import type {
 import { getWikiNode } from "../src/store.js";
 import type { Subscription } from "../src/subscriptions.js";
 import { readTrendingSnapshot } from "../src/trending-board.js";
+import {
+  WEEKLY_MONEY_DOC_KEY,
+  markWeeklyMoneyPushed,
+  readWeeklyMoneySnapshot,
+} from "../src/weekly-money.js";
 import { createTestDb, stubFetch, trendingFixture } from "./helpers.js";
 
 interface FakeStar {
@@ -360,12 +365,39 @@ describe("runBatch", () => {
     expect(writer.documents.find((d) => d.docKey === "__trending")?.markdown).toContain("每周");
   });
 
+  it("publishes a detailed weekly Top 10 after a completed week", async () => {
+    const result = await run({ now: new Date("2026-10-19T01:00:00Z") });
+
+    const weekly = writer.documents.find((document) => document.docKey === WEEKLY_MONEY_DOC_KEY);
+    expect(weekly?.title).toBe("每周搞钱项目 Top 10");
+    expect(weekly?.markdown).toContain("2026-10-12 至 2026-10-18");
+    expect(weekly?.markdown.match(/^- 精选理由：/gm)).toHaveLength(10);
+    expect(result.weeklyMoneyNodeToken).toBeTruthy();
+    expect(result.weeklyMoneyPushDue).toBe(true);
+    expect(result.weeklyMoneyReport?.picks).toHaveLength(10);
+    expect(readWeeklyMoneySnapshot(db)?.report.period.key).toBe("2026-10-12_2026-10-18");
+  });
+
+  it("does not push or rewrite the same weekly report after delivery succeeds", async () => {
+    const first = await run({ now: new Date("2026-10-19T01:00:00Z") });
+    expect(first.weeklyMoneyPeriodKey).toBe("2026-10-12_2026-10-18");
+
+    markWeeklyMoneyPushed(db, first.weeklyMoneyPeriodKey!, new Date("2026-10-19T02:00:00Z"));
+    writer.documents.length = 0;
+
+    const second = await run({ now: new Date("2026-10-20T01:00:00Z") });
+    expect(second.weeklyMoneyPushDue).toBe(false);
+    expect(second.weeklyMoneyUnchanged).toBe(true);
+    expect(writer.documents.find((document) => document.docKey === WEEKLY_MONEY_DOC_KEY)).toBeUndefined();
+  });
+
   it("skips the board entirely when it is switched off", async () => {
     const result = await run({ trending: false });
 
     expect(writer.documents.map((d) => d.docKey)).toEqual(["karpathy__stars", "antfu__stars", "__index"]);
     expect(result.trendingNodeToken).toBeNull();
     expect(result.trendingCount).toBe(0);
+    expect(result.weeklyMoneyNodeToken).toBeNull();
     expect(readTrendingSnapshot(db)).toBeNull();
   });
 });

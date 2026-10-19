@@ -21,6 +21,7 @@ import { buildRosterView } from "../roster-view.js";
 import { createWriter, runSync, SETTING_KEYS, subscriptionsFromDb } from "../service.js";
 import type { Subscription, Subscriptions } from "../subscriptions.js";
 import { readTrendingSnapshot, type TrendingSince } from "../trending-board.js";
+import { readWeeklyMoneySnapshot } from "../weekly-money.js";
 import { SyncBusyError } from "../scheduler.js";
 import {
   deleteSubscription,
@@ -460,6 +461,26 @@ export function createApi(options: ApiOptions): Hono {
       since: (snapshot?.since ?? "daily") satisfies TrendingSince,
       repos: snapshot?.repos ?? [],
       rows: snapshot?.rows ?? [],
+    });
+  });
+
+  /**
+   * Latest weekly editorial report.
+   *
+   * The report is generated once per Monday-Sunday period during a sync and
+   * cached in SQLite. Serving the snapshot keeps the extension page fast and
+   * makes the page show exactly the same ten picks that were pushed to Feishu.
+   */
+  app.get("/api/weekly-money", (c) => {
+    const snapshot = readWeeklyMoneySnapshot(db);
+    return c.json({
+      generatedAt: snapshot?.report.generatedAt ?? null,
+      period: snapshot?.report.period ?? null,
+      candidateCount: snapshot?.report.candidateCount ?? 0,
+      fallbackCount: snapshot?.report.fallbackCount ?? 0,
+      methodology: snapshot?.report.methodology ?? "",
+      picks: snapshot?.report.picks ?? [],
+      pushedAt: snapshot?.pushedAt ?? null,
     });
   });
 

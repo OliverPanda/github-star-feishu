@@ -27,6 +27,16 @@ import {
   renderCommercialBoard,
   summarizeCommercialBoard,
 } from "./commercial-board.js";
+import {
+  WEEKLY_MONEY_DOC_KEY,
+  WEEKLY_MONEY_TITLE,
+  buildWeeklyMoneyReport,
+  readWeeklyMoneySnapshot,
+  renderWeeklyMoneyBoard,
+  saveWeeklyMoneySnapshot,
+  weeklyReportPeriod,
+  type WeeklyMoneyReport,
+} from "./weekly-money.js";
 
 export interface BatchOptions {
   db: Db;
@@ -100,6 +110,14 @@ export interface BatchResult {
   commercialSummary: string;
   /** Populated when the money board could not be published. */
   commercialError: string | null;
+  /** Weekly editorial board node, or null when this run did not need/publish it. */
+  weeklyMoneyNodeToken: string | null;
+  weeklyMoneyUnchanged: boolean;
+  weeklyMoneyPeriodKey: string | null;
+  weeklyMoneyReport: WeeklyMoneyReport | null;
+  /** True until a notification channel confirms delivery of this week's card. */
+  weeklyMoneyPushDue: boolean;
+  weeklyMoneyError: string | null;
   newStars: number;
   failed: number;
 }
@@ -240,6 +258,8 @@ export async function runBatch(options: BatchOptions): Promise<BatchResult> {
   // explicit no-trending/test mode lightweight and preserve the empty-batch
   // behavior used by dry runs.
   const money = trending && authors.length > 0 ? await publishCommercialBoard() : emptyMoney();
+  const weeklyMoney =
+    trending && authors.length > 0 ? await publishWeeklyMoneyBoard() : emptyWeeklyMoney();
 
   return {
     spaceId,
@@ -255,6 +275,12 @@ export async function runBatch(options: BatchOptions): Promise<BatchResult> {
     commercialUnchanged: money.skipped,
     commercialSummary: money.summary,
     commercialError: money.error,
+    weeklyMoneyNodeToken: weeklyMoney.nodeToken,
+    weeklyMoneyUnchanged: weeklyMoney.skipped,
+    weeklyMoneyPeriodKey: weeklyMoney.periodKey,
+    weeklyMoneyReport: weeklyMoney.report,
+    weeklyMoneyPushDue: weeklyMoney.pushDue,
+    weeklyMoneyError: weeklyMoney.error,
     newStars,
     failed: outcomes.filter((outcome) => outcome.error).length,
   };
@@ -265,6 +291,17 @@ export async function runBatch(options: BatchOptions): Promise<BatchResult> {
 
   function emptyMoney() {
     return { nodeToken: null, skipped: false, summary: "", error: null };
+  }
+
+  function emptyWeeklyMoney() {
+    return {
+      nodeToken: null,
+      skipped: false,
+      periodKey: null,
+      report: null,
+      pushDue: false,
+      error: null,
+    };
   }
 
   /**
@@ -361,6 +398,87 @@ export async function runBatch(options: BatchOptions): Promise<BatchResult> {
       // The digest still goes out: the curated list is generated locally, so
       // the reader gets today's picks even when the wiki write failed.
       return { nodeToken: null, skipped: false, summary, error: detail };
+    }
+  }
+
+  /**
+   * Publish one Top 10 report for the latest completed Monday-Sunday week.
+   *
+   * The cache doubles as the delivery ledger: the document may already exist,
+   * but `weeklyMoneyPushDue` stays true until the notification layer records a
+   * successful send. A failed card therefore retries on the next daily run
+   * without rebuilding or duplicating the wiki page.
+   */
+  async function publishWeeklyMoneyBoard(): Promise<{
+    nodeToken: string | null;
+    skipped: boolean;
+    periodKey: string | null;
+    report: WeeklyMoneyReport | null;
+    pushDue: boolean;
+    error: string | null;
+  }> {
+    const period = weeklyReportPeriod(now);
+    const cached = readWeeklyMoneySnapshot(db);
+    const existingNode = getWikiNode(db, WEEKLY_MONEY_DOC_KEY, spaceId);
+    const samePeriod = cached?.report.period.key === period.key;
+    const report = samePeriod ? cached.report : buildWeeklyMoneyReport(now);
+    const pushDue = !samePeriod || cached?.pushedAt === null;
+
+    // The report is deterministic for a period. When the node is already known
+    // there is nothing to do, and returning early keeps a re-run from touching
+    // both the knowledge base and the cache just to discover the same content.
+    if (samePeriod && existingNode) {
+      return {
+        nodeToken: existingNode.nodeToken,
+        skipped: true,
+        periodKey: report.period.key,
+        report,
+        pushDue,
+        error: null,
+      };
+    }
+
+    if (!samePeriod) {
+      saveWeeklyMoneySnapshot(db, { report, pushedAt: null });
+    }
+
+    try {
+      const published = await publishDocument({
+        db,
+        writer,
+        login: WEEKLY_MONEY_DOC_KEY,
+        docKey: WEEKLY_MONEY_DOC_KEY,
+        spaceId,
+        title: WEEKLY_MONEY_TITLE,
+        markdown: renderWeeklyMoneyBoard(report),
+        parentNodeToken: indexParentNodeToken,
+        force,
+        log,
+      });
+      log(
+        `\n每周搞钱项目：${published.skipped ? "内容未变化，已跳过" : `已更新 ${published.nodeToken}`}`,
+      );
+      return {
+        nodeToken: published.nodeToken,
+        skipped: published.skipped,
+        periodKey: report.period.key,
+        report,
+        pushDue,
+        error: null,
+      };
+    } catch (error) {
+      const detail = describe(error);
+      log(`\n每周搞钱项目发布失败（不影响 Star 同步）：${detail}`);
+      // GitHub repository links in the weekly card still work when the wiki
+      // write fails, so the editorial push remains useful and is not dropped.
+      return {
+        nodeToken: null,
+        skipped: false,
+        periodKey: report.period.key,
+        report,
+        pushDue,
+        error: detail,
+      };
     }
   }
 

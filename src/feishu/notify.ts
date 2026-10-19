@@ -1,4 +1,8 @@
 import type { BatchResult } from "../batch.js";
+import {
+  WEEKLY_MONEY_TITLE,
+  type WeeklyMoneyReport,
+} from "../weekly-money.js";
 import { sendChatCard } from "./app-notify.js";
 
 export interface NotifyOptions {
@@ -34,6 +38,14 @@ export async function notifyBatchResult(
   options: NotifyOptions,
 ): Promise<boolean> {
   return notifyCard(buildSummaryCard(result, options), options);
+}
+
+/** Push the detailed weekly Top 10 as its own card. */
+export async function notifyWeeklyMoneyReport(
+  report: WeeklyMoneyReport,
+  options: NotifyOptions & { nodeToken?: string | null },
+): Promise<boolean> {
+  return notifyCard(buildWeeklyMoneyCard(report, options), options);
 }
 
 function fetchOption(options: NotifyOptions): Pick<NotifyOptions, "fetchImpl" | "log"> {
@@ -159,6 +171,67 @@ export function buildSummaryCard(
   };
 }
 
+/**
+ * Detailed weekly card.
+ *
+ * The daily card stays terse; this one gives every selected project enough
+ * space to state why it was chosen, how it earns money, and where the reader
+ * can deploy it. That detail is the reason the weekly column exists.
+ */
+export function buildWeeklyMoneyCard(
+  report: WeeklyMoneyReport,
+  options: Pick<NotifyOptions, "wikiBaseUrl"> & { nodeToken?: string | null } = {},
+): { msg_type: "interactive"; card: Record<string, unknown> } {
+  const coverage =
+    `统计周期 **${report.period.label}**，汇总 ${report.candidateCount} 个不重复项目后精选 ${report.picks.length} 个。` +
+    (report.fallbackCount ? `其中 ${report.fallbackCount} 个由常备项目池补位。` : "");
+  const items = report.picks
+    .map((pick) =>
+      [
+        `**${pick.rank}. [${pick.name}](${pick.url})** · ${pick.category} · ${pick.score}/100`,
+        `**精选原因：** ${pick.reason}`,
+        `**怎么收钱：** ${pick.monetization}`,
+        `**适合谁：** ${pick.fit}`,
+      ].join("\n"),
+    )
+    .join("\n\n");
+
+  const elements: Record<string, unknown>[] = [
+    {
+      tag: "div",
+      text: {
+        tag: "lark_md",
+        content: `${coverage}\n\n**精选方法：** ${report.methodology}`,
+      },
+    },
+    { tag: "hr" },
+    { tag: "div", text: { tag: "lark_md", content: items } },
+  ];
+
+  const page = wikiLink(options.wikiBaseUrl, options.nodeToken ?? null, WEEKLY_MONEY_TITLE);
+  if (page) {
+    elements.push(
+      { tag: "hr" },
+      { tag: "div", text: { tag: "lark_md", content: `📄 ${page}` } },
+    );
+  }
+
+  return {
+    msg_type: "interactive",
+    card: {
+      config: { wide_screen_mode: true },
+      header: {
+        title: {
+          tag: "plain_text",
+          content: `${WEEKLY_MONEY_TITLE} · ${report.period.label}`,
+        },
+        template: "orange",
+      },
+      elements,
+    },
+  };
+}
+
 /** The money digest plus links to every page this run touched. */
 function buildMoneySection(result: BatchResult, wikiBaseUrl?: string): string | null {
   if (!result.commercialSummary && !result.commercialNodeToken) return null;
@@ -170,6 +243,8 @@ function buildMoneySection(result: BatchResult, wikiBaseUrl?: string): string | 
   const links: string[] = [];
   const money = wikiLink(wikiBaseUrl, result.commercialNodeToken, "搞钱项目精选 Top 20");
   if (money) links.push(money);
+  const weekly = wikiLink(wikiBaseUrl, result.weeklyMoneyNodeToken, "每周搞钱项目 Top 10");
+  if (weekly) links.push(weekly);
   const trending = wikiLink(wikiBaseUrl, result.trendingNodeToken, "GitHub 上涨趋势榜");
   if (trending) links.push(trending);
   const index = wikiLink(wikiBaseUrl, result.indexNodeToken, "知识库首页");

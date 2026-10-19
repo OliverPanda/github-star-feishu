@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildSummaryCard, notifyBatchResult } from "../src/feishu/notify.js";
+import {
+  buildSummaryCard,
+  buildWeeklyMoneyCard,
+  notifyBatchResult,
+} from "../src/feishu/notify.js";
 import type { AuthorOutcome, BatchResult } from "../src/batch.js";
+import { buildWeeklyMoneyReport } from "../src/weekly-money.js";
 
 function outcome(overrides: Partial<AuthorOutcome> & { login: string }): AuthorOutcome {
   return {
@@ -31,6 +36,12 @@ function result(overrides: Partial<BatchResult> = {}): BatchResult {
     commercialUnchanged: false,
     commercialSummary: "",
     commercialError: null,
+    weeklyMoneyNodeToken: null,
+    weeklyMoneyUnchanged: false,
+    weeklyMoneyPeriodKey: null,
+    weeklyMoneyReport: null,
+    weeklyMoneyPushDue: false,
+    weeklyMoneyError: null,
     newStars: 0,
     failed: 0,
     ...overrides,
@@ -89,6 +100,7 @@ describe("buildSummaryCard", () => {
       result({
         commercialSummary: "**搞钱项目精选 Top 20**（2026-10-16 更新）",
         commercialNodeToken: "wikcnMoney",
+        weeklyMoneyNodeToken: "wikcnWeekly",
         trendingNodeToken: "wikcnTrending",
       }),
       { wikiBaseUrl: "https://pcnymmlbor6m.feishu.cn/wiki/" },
@@ -101,6 +113,7 @@ describe("buildSummaryCard", () => {
     const money = card.card.elements[2].text.content as string;
     expect(money).toContain("搞钱项目精选 Top 20**（2026-10-16 更新）");
     expect(money).toContain("https://pcnymmlbor6m.feishu.cn/wiki/wikcnMoney");
+    expect(money).toContain("https://pcnymmlbor6m.feishu.cn/wiki/wikcnWeekly");
     expect(money).toContain("https://pcnymmlbor6m.feishu.cn/wiki/wikcnTrending");
   });
 
@@ -116,6 +129,27 @@ describe("buildSummaryCard", () => {
     const money = card.card.elements[2].text.content as string;
     expect(money).toContain("今日聚焦");
     expect(money).toContain("⚠️ 知识库页面写入失败：权限不足");
+  });
+});
+
+describe("buildWeeklyMoneyCard", () => {
+  it("pushes all ten picks with explicit selection reasons", () => {
+    const report = buildWeeklyMoneyReport(new Date("2026-10-19T01:00:00Z"));
+    const card = buildWeeklyMoneyCard(report, {
+      wikiBaseUrl: "https://pcnymmlbor6m.feishu.cn/wiki/",
+      nodeToken: "wikcnWeekly",
+    }) as any;
+
+    expect(card.card.header.title.content).toContain("每周搞钱项目 Top 10");
+    expect(card.card.header.title.content).toContain("2026-10-12 至 2026-10-18");
+    const items = card.card.elements[2].text.content as string;
+    expect(items.match(/^\*\*\d+\. /gm)).toHaveLength(10);
+    expect(items.match(/\*\*精选原因：\*\*/g)).toHaveLength(10);
+    expect(items).toContain("**怎么收钱：**");
+    expect(items).toContain("**适合谁：**");
+    expect(card.card.elements.at(-1).text.content).toContain(
+      "https://pcnymmlbor6m.feishu.cn/wiki/wikcnWeekly",
+    );
   });
 });
 

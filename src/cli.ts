@@ -18,8 +18,14 @@ import { authorDocumentHeading } from "./render/markdown.js";
 import { FeishuCliWriter } from "./feishu/cli.js";
 import { readLoginStatus, runLoginFlow } from "./feishu/login-flow.js";
 import { LocalFsWriter } from "./feishu/local.js";
-import { buildSimpleCard, notifyBatchResult, notifyCard } from "./feishu/notify.js";
+import {
+  buildSimpleCard,
+  notifyBatchResult,
+  notifyCard,
+  notifyWeeklyMoneyReport,
+} from "./feishu/notify.js";
 import { COMMERCIAL_DOC_KEY, summarizeCommercialBoard } from "./commercial-board.js";
+import { markWeeklyMoneyPushed } from "./weekly-money.js";
 import { getWikiNode } from "./store.js";
 import {
   activeAuthors,
@@ -316,6 +322,27 @@ async function main(): Promise<void> {
           // into a full re-sync the next day. Report it and keep the run green.
           const detail = error instanceof Error ? error.message : String(error);
           log(`      飞书通知失败（不影响本次同步）：${detail}`);
+        }
+
+        // The weekly report is a separate, longer card. Keeping it out of the
+        // ordinary sync card means a broken summary push cannot swallow the
+        // ten detailed recommendations, and vice versa.
+        if (result.weeklyMoneyPushDue && result.weeklyMoneyReport) {
+          try {
+            const sent = await notifyWeeklyMoneyReport(result.weeklyMoneyReport, {
+              ...(app ? { app } : {}),
+              webhook: subscriptions.webhook,
+              wikiBaseUrl: subscriptions.wikiBaseUrl,
+              nodeToken: result.weeklyMoneyNodeToken,
+              log,
+            });
+            if (sent && result.weeklyMoneyPeriodKey) {
+              markWeeklyMoneyPushed(db, result.weeklyMoneyPeriodKey);
+            }
+          } catch (error) {
+            const detail = error instanceof Error ? error.message : String(error);
+            log(`      搞钱周报推送失败（下次同步会补推）：${detail}`);
+          }
         }
       } else {
         log("      未配置 webhook 或 notify_chat，跳过通知");

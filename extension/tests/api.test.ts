@@ -444,6 +444,53 @@ describe("ApiClient roster", () => {
     });
   });
 
+  it("reads the cached weekly Top 10 with its score breakdown", async () => {
+    const board = {
+      generatedAt: "2026-10-19T01:00:00.000Z",
+      period: {
+        key: "2026-10-12_2026-10-18",
+        start: "2026-10-12",
+        end: "2026-10-18",
+        label: "2026-10-12 至 2026-10-18",
+      },
+      candidateCount: 60,
+      fallbackCount: 0,
+      methodology: "精选方法",
+      pushedAt: null,
+      picks: [
+        {
+          rank: 1,
+          name: "AnythingLLM",
+          repo: "Mintplex-Labs/anything-llm",
+          url: "https://github.com/Mintplex-Labs/anything-llm",
+          category: "企业知识库",
+          source: "week" as const,
+          sourceDate: "2026-10-18",
+          score: 95,
+          breakdown: {
+            demand: 95,
+            monetization: 95,
+            delivery: 88,
+            repeatability: 95,
+          },
+          reason: "客户和收费链条清楚",
+          scenario: "企业知识库",
+          deploy: "Docker",
+          monetization: "SaaS 订阅",
+          fit: "AI 服务商",
+        },
+      ],
+    };
+    const fetchImpl = vi.fn(async () => jsonResponse(board));
+    const client = new ApiClient(SETTINGS, fetchImpl as unknown as typeof fetch);
+
+    await expect(client.listWeeklyMoney()).resolves.toEqual(board);
+
+    const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("http://127.0.0.1:8787/api/weekly-money");
+    expect(init.method).toBe("GET");
+  });
+
   it("forwards allowUnsubscribed so a recommended author can be arranged", async () => {
     const fetchImpl = vi.fn(async () =>
       jsonResponse({

@@ -2,15 +2,23 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createSyncGate, createSyncScheduler, SyncBusyError } from "../src/scheduler.js";
 import { readLoginStatus } from "../src/feishu/login-flow.js";
 import { readGitHubLoginStatus } from "../src/github/login-flow.js";
-import { notifyText } from "../src/feishu/notify.js";
+import { notifyText, notifyWeeklyMoneyReport } from "../src/feishu/notify.js";
 import { getSetting, setSetting, upsertSubscription } from "../src/store.js";
 import { createTestDb } from "./helpers.js";
 import type { AppConfig } from "../src/config.js";
 import type { runSync, SyncServiceResult } from "../src/service.js";
+import {
+  buildWeeklyMoneyReport,
+  readWeeklyMoneySnapshot,
+  saveWeeklyMoneySnapshot,
+} from "../src/weekly-money.js";
 
 vi.mock("../src/feishu/login-flow.js", () => ({ readLoginStatus: vi.fn() }));
 vi.mock("../src/github/login-flow.js", () => ({ readGitHubLoginStatus: vi.fn() }));
-vi.mock("../src/feishu/notify.js", () => ({ notifyText: vi.fn() }));
+vi.mock("../src/feishu/notify.js", () => ({
+  notifyText: vi.fn(),
+  notifyWeeklyMoneyReport: vi.fn(),
+}));
 
 const config: AppConfig = {
   githubToken: undefined, github: { cliPath: "gh", configDir: "unused" },
@@ -23,6 +31,8 @@ const success: SyncServiceResult = {
   indexMarkdown: "", trendingNodeToken: "board", trendingUnchanged: false,
   trendingCount: 10, trendingError: null, commercialNodeToken: "money",
   commercialUnchanged: false, commercialSummary: "", commercialError: null,
+  weeklyMoneyNodeToken: null, weeklyMoneyUnchanged: false, weeklyMoneyPeriodKey: null,
+  weeklyMoneyReport: null, weeklyMoneyPushDue: false, weeklyMoneyError: null,
   newStars: 0, failed: 0, runId: 1, skipped: [],
 };
 
@@ -33,6 +43,7 @@ describe("service daily scheduler", () => {
     vi.mocked(readLoginStatus).mockResolvedValue({ loggedIn: true, appId: null, userName: null, scopes: [], hint: null, missingScopes: [] });
     vi.mocked(readGitHubLoginStatus).mockResolvedValue({ loggedIn: true, login: "tester", scopes: [], hint: null, tokenSource: null });
     vi.mocked(notifyText).mockResolvedValue(true);
+    vi.mocked(notifyWeeklyMoneyReport).mockResolvedValue(true);
   });
   afterEach(async () => {
     for (const task of tasks.splice(0)) await task.destroy();
@@ -100,6 +111,31 @@ describe("service daily scheduler", () => {
     await task!.execute();
     expect(notifyText).toHaveBeenCalledOnce();
     if (overrides.failed) expect(vi.mocked(notifyText).mock.calls[0]![0]).toContain("antfu：unexpected EOF");
+  });
+
+  it("pushes the weekly Top 10 separately and records delivery", async () => {
+    const { task, runner, db } = setup();
+    const report = buildWeeklyMoneyReport(new Date("2026-10-19T01:00:00Z"));
+    saveWeeklyMoneySnapshot(db, { report, pushedAt: null });
+    runner.mockResolvedValue({
+      ...success,
+      weeklyMoneyNodeToken: "weekly-node",
+      weeklyMoneyPeriodKey: report.period.key,
+      weeklyMoneyReport: report,
+      weeklyMoneyPushDue: true,
+    });
+
+    await task!.execute();
+
+    expect(notifyText).toHaveBeenCalledWith(
+      expect.stringContaining("搞钱周报"),
+      expect.anything(),
+    );
+    expect(notifyWeeklyMoneyReport).toHaveBeenCalledWith(
+      report,
+      expect.objectContaining({ nodeToken: "weekly-node" }),
+    );
+    expect(readWeeklyMoneySnapshot(db)?.pushedAt).toBeTruthy();
   });
 
   it("records batch errors and survives webhook errors for the next run", async () => {

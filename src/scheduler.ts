@@ -3,9 +3,10 @@ import type { AppConfig } from "./config.js";
 import type { Db } from "./db/client.js";
 import { readLoginStatus } from "./feishu/login-flow.js";
 import { readGitHubLoginStatus } from "./github/login-flow.js";
-import { notifyText } from "./feishu/notify.js";
+import { notifyText, notifyWeeklyMoneyReport } from "./feishu/notify.js";
 import { runSync, subscriptionsFromDb } from "./service.js";
 import { setSetting } from "./store.js";
+import { markWeeklyMoneyPushed, type WeeklyMoneyReport } from "./weekly-money.js";
 
 export class SyncBusyError extends Error {
   constructor() { super("已有同步正在运行，请稍后再试"); }
@@ -49,6 +50,9 @@ export function createSyncScheduler(options: {
         let message: string;
         let status: string;
         let actionable = true;
+        let weeklyReport: WeeklyMoneyReport | null = null;
+        let weeklyPeriodKey: string | null = null;
+        let weeklyNodeToken: string | null = null;
         try {
           const [feishu, github] = await Promise.all([
             readLoginStatus({ ...config.feishu, log }),
@@ -62,8 +66,19 @@ export function createSyncScheduler(options: {
           log("每日定时同步开始");
           const result = await runner({ db, config, subscriptions, trigger: "schedule", log });
           const trendingFailed = subscriptions.trending && (result.trendingError || result.trendingCount === 0);
-          actionable = result.newStars > 0 || result.failed > 0 || Boolean(trendingFailed);
-          status = result.failed || trendingFailed ? "failed" : "success";
+          const weeklyFailed = result.weeklyMoneyPushDue && Boolean(result.weeklyMoneyError);
+          actionable =
+            result.newStars > 0 ||
+            result.failed > 0 ||
+            Boolean(trendingFailed) ||
+            result.weeklyMoneyPushDue ||
+            weeklyFailed;
+          status = result.failed || trendingFailed || weeklyFailed ? "failed" : "success";
+          if (result.weeklyMoneyPushDue) {
+            weeklyReport = result.weeklyMoneyReport;
+            weeklyPeriodKey = result.weeklyMoneyPeriodKey;
+            weeklyNodeToken = result.weeklyMoneyNodeToken;
+          }
           const lines = [`每日同步：新增 ${result.newStars} 个 star，失败 ${result.failed} 个作者`];
           for (const outcome of result.outcomes) {
             if (outcome.error) lines.push(`${outcome.login}：${outcome.error}`);
@@ -72,6 +87,12 @@ export function createSyncScheduler(options: {
           // The money board is written by the same run, so its failure belongs
           // in the same message instead of only in the run log.
           if (result.commercialError) lines.push(`搞钱项目精选失败：${result.commercialError}`);
+          if (result.weeklyMoneyError) lines.push(`搞钱周报失败：${result.weeklyMoneyError}`);
+          if (weeklyReport) {
+            lines.push(
+              `搞钱周报：${weeklyReport.period.label} Top ${weeklyReport.picks.length} 待推送`,
+            );
+          }
           message = lines.join("\n");
         } catch (error) {
           status = "failed";
@@ -80,11 +101,38 @@ export function createSyncScheduler(options: {
         // Includes preflight failures, which never reach runSync's history table.
         setSetting(db, "scheduler_last_result", JSON.stringify({ startedAt, finishedAt: new Date().toISOString(), status, message }));
         log(message);
-        if (actionable && subscriptions.webhook) {
+        const app =
+          subscriptions.notifyChat && config.feishu.appId && config.feishu.appSecret
+            ? {
+                appId: config.feishu.appId,
+                appSecret: config.feishu.appSecret,
+                chatId: subscriptions.notifyChat,
+              }
+            : undefined;
+        const hasChannel = Boolean(app || subscriptions.webhook);
+        if (actionable && hasChannel) {
           try {
-            await notifyText(message, { webhook: subscriptions.webhook, log });
+            await notifyText(message, {
+              ...(app ? { app } : {}),
+              webhook: subscriptions.webhook,
+              log,
+            });
           } catch (error) {
             log(`每日同步通知失败：${error instanceof Error ? error.message : String(error)}`);
+          }
+        }
+        if (weeklyReport && weeklyPeriodKey && hasChannel) {
+          try {
+            const sent = await notifyWeeklyMoneyReport(weeklyReport, {
+              ...(app ? { app } : {}),
+              webhook: subscriptions.webhook,
+              wikiBaseUrl: subscriptions.wikiBaseUrl,
+              nodeToken: weeklyNodeToken,
+              log,
+            });
+            if (sent) markWeeklyMoneyPushed(db, weeklyPeriodKey);
+          } catch (error) {
+            log(`搞钱周报推送失败（下次同步会补推）：${error instanceof Error ? error.message : String(error)}`);
           }
         }
       });

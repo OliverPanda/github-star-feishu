@@ -4,6 +4,7 @@ import {
   loginFromSearch,
   ROSTER_PAGE_PATH,
   TRENDING_PAGE_PATH,
+  WEEKLY_MONEY_PAGE_PATH,
 } from "../lib/author-page.js";
 
 describe("authorPagePath", () => {
@@ -41,5 +42,11 @@ describe("ROSTER_PAGE_PATH", () => {
 describe("TRENDING_PAGE_PATH", () => {
   it("points at the trending page that the popup button opens", () => {
     expect(TRENDING_PAGE_PATH).toBe("/trending.html");
+  });
+});
+
+describe("WEEKLY_MONEY_PAGE_PATH", () => {
+  it("points at the detailed weekly Top 10 page", () => {
+    expect(WEEKLY_MONEY_PAGE_PATH).toBe("/weekly.html");
   });
 });

@@ -287,6 +287,50 @@ export interface TrendingBoard {
   rows: TrendingRow[];
 }
 
+/**
+ * One project in the weekly Top 10.
+ *
+ * Mirrors `WeeklyMoneyPick` in `src/weekly-money.ts`. The breakdown is kept
+ * separate from the total so the page can explain the ranking instead of
+ * presenting the number as a black box.
+ */
+export interface WeeklyMoneyPick {
+  rank: number;
+  name: string;
+  repo: string;
+  url: string;
+  category: string;
+  source: "week" | "fallback";
+  sourceDate: string | null;
+  score: number;
+  breakdown: {
+    demand: number;
+    monetization: number;
+    delivery: number;
+    repeatability: number;
+  };
+  reason: string;
+  scenario: string;
+  deploy: string;
+  monetization: string;
+  fit: string;
+}
+
+export interface WeeklyMoneyBoard {
+  generatedAt: string | null;
+  period: {
+    key: string;
+    start: string;
+    end: string;
+    label: string;
+  } | null;
+  candidateCount: number;
+  fallbackCount: number;
+  methodology: string;
+  picks: WeeklyMoneyPick[];
+  pushedAt: string | null;
+}
+
 /** Thrown for any non-2xx response, carrying the service's Chinese message. */
 export class ApiError extends Error {
   constructor(
@@ -394,6 +438,11 @@ export class ApiClient {
    */
   listTrending(): Promise<TrendingBoard> {
     return this.request<TrendingBoard>("GET", "/api/trending");
+  }
+
+  /** Latest weekly Top 10, served from the same cache used for the push card. */
+  listWeeklyMoney(): Promise<WeeklyMoneyBoard> {
+    return this.request<WeeklyMoneyBoard>("GET", "/api/weekly-money");
   }
 
   async run(options: RunOptions = {}): Promise<RunResult> {
